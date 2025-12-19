@@ -1,0 +1,220 @@
+namespace ReSys.Shop.Core.Domain.Settings;
+
+/// <summary>
+/// Represents a dynamic application configuration entry stored as a key-value pair.
+/// This allows for flexible, runtime-adjustable settings without requiring code changes or redeployments.
+/// In a single-store application context, these configurations effectively define the store's settings.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <strong>Role in Application:</strong>
+/// This aggregate enables external management of application settings, serving as the central repository
+/// for configurable parameters that define the behavior and characteristics of the single storefront.
+/// <list type="bullet">
+/// <item>
+/// <term>Dynamic Settings</term>
+/// <description>Adjust behaviors, feature flags, or thresholds during runtime, including all previously store-specific configurations.</description>
+/// </item>
+/// <item>
+/// <term>Centralized Control</term>
+/// <description>Manage all configurable parameters from a single source (e.g., an admin panel), consolidating what were formerly 'Store' entity properties.</description>
+/// </item>
+/// <item>
+/// <term>Typed Values</term>
+/// <description>Supports various data types (string, int, bool, etc.) ensuring data integrity for all configurations.</description>
+/// </item>
+/// </list>
+/// </para>
+///
+/// <para>
+/// <strong>Key Fields:</strong>
+/// <list type="bullet">
+/// <item>
+/// <term>Key</term>
+/// <description>A unique identifier for the configuration setting (e.g., "Store:DefaultCurrency", "Store:MailFromAddress", "Store:Address1").</description>
+/// </item>
+/// <item>
+/// <term>Value</term>
+/// <description>The current value of the configuration setting.</description>
+/// </item>
+/// <item>
+/// <term>DefaultValue</term>
+/// <description>The fallback value if the primary value is not set or invalid.</description>
+/// </item>
+/// <item>
+/// <term>ValueType</term>
+/// <description>The expected data type of the configuration's value, for validation and parsing.</description>
+/// </item>
+/// </list>
+/// </para>
+/// </remarks>
+public sealed class Setting : Aggregate<Guid>
+{
+    /// <summary>
+    /// Gets the unique key identifying this configuration setting.
+    /// This key is used to retrieve the configuration value.
+    /// </summary>
+    public string Key { get; set; } = string.Empty;
+    /// <summary>
+    /// Gets the current value of the configuration setting.
+    /// This value can be updated dynamically.
+    /// </summary>
+    public string Value { get; set; } = string.Empty;
+    /// <summary>
+    /// Gets a descriptive explanation of what this configuration setting controls.
+    /// </summary>
+    public string Description { get; set; } = string.Empty;
+    /// <summary>
+    /// Gets the default or fallback value for this configuration setting.
+    /// </summary>
+    public string DefaultValue { get; set; } = string.Empty;
+    /// <summary>
+    /// Gets the expected data type of the configuration's value.
+    /// Used for validation and proper casting/parsing at the application layer.
+    /// </summary>
+    public ConfigurationValueType ValueType { get; set; }
+
+    /// <summary>
+    /// Private constructor for ORM (Entity Framework Core) materialization.
+    /// </summary>
+    private Setting() { }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Setting"/> class.
+    /// This constructor is primarily used internally by the static <see cref="Create"/> factory method.
+    /// </summary>
+    /// <param name="id">The unique identifier of the configuration.</param>
+    /// <param name="key">The unique key of the configuration setting.</param>
+    /// <param name="value">The current value of the configuration setting.</param>
+    /// <param name="description">A description of the configuration setting.</param>
+    /// <param name="defaultValue">The default value of the configuration setting.</param>
+    /// <param name="valueType">The expected data type of the configuration's value.</param>
+    private Setting(
+        Guid id,
+        string key,
+        string value,
+        string description,
+        string defaultValue,
+        ConfigurationValueType valueType)
+        : base(id: id)
+    {
+        Key = key;
+        Value = value;
+        Description = description;
+        DefaultValue = defaultValue;
+        ValueType = valueType;
+    }
+
+    /// <summary>
+    /// Factory method to create a new <see cref="Setting"/> instance.
+    /// Performs basic validation and initializes the configuration with a new GUID.
+    /// </summary>
+    /// <param name="key">The unique key for the new configuration setting.</param>
+    /// <param name="value">The initial value for the configuration setting.</param>
+    /// <param name="description">A descriptive explanation of the configuration setting.</param>
+    /// <param name="defaultValue">The default fallback value for the configuration setting.</param>
+    /// <param name="valueType">The expected data type of the configuration's value.</param>
+    /// <returns>
+    /// An <see cref="ErrorOr{Configuration}"/> result.
+    /// Returns the newly created <see cref="Setting"/> instance on success.
+    /// Returns <see cref="Setting.Errors.KeyRequired"/> if the key is null or whitespace.
+    /// </returns>
+    public static ErrorOr<Setting> Create(
+        string key,
+        string value,
+        string description,
+        string defaultValue,
+        ConfigurationValueType valueType)
+    {
+        // Basic validation as per existing domain entities (e.g., Product.cs)
+        if (string.IsNullOrWhiteSpace(value: key))
+        {
+            return Setting.Errors.KeyRequired;
+        }
+
+        // Additional validation can be added here if needed,
+        // for instance, checking if the value can be parsed according to ValueType
+
+        return new Setting(
+            id: Guid.NewGuid(),
+            key: key,
+            value: value,
+            description: description,
+            defaultValue: defaultValue,
+            valueType: valueType);
+    }
+
+    /// <summary>
+    /// Updates the <see cref="Value"/> of the configuration setting.
+    /// </summary>
+    /// <param name="newValue">The new value to set for the configuration.</param>
+    /// <returns>
+    /// An <see cref="ErrorOr{Updated}"/> result.
+    /// Returns <see cref="Result.Updated"/> on successful update.
+    /// Returns <see cref="Setting.Errors.ValueRequired"/> if the new value is null or whitespace.
+    /// </returns>
+    public ErrorOr<Updated> Update(string newValue)
+    {
+        if (string.IsNullOrWhiteSpace(value: newValue))
+        {
+            return Setting.Errors.ValueRequired;
+        }
+        
+        // Add specific parsing/casting logic based on ValueType if necessary for validation
+        // For now, we'll allow any string and assume parsing happens at application layer.
+
+        Value = newValue;
+        return Result.Updated;
+    }
+
+    /// <summary>
+    /// Defines constraints and limits for configuration keys and values.
+    /// </summary>
+    public static class Constraints
+    {
+        /// <summary>
+        /// Maximum length for the configuration key.
+        /// </summary>
+        public const int KeyMaxLength = 100;
+        /// <summary>
+        /// Maximum length for the configuration value.
+        /// </summary>
+        public const int ValueMaxLength = 500;
+        /// <summary>
+        /// Maximum length for the configuration description.
+        /// </summary>
+        public const int DescriptionMaxLength = 500;
+        /// <summary>
+        /// Maximum length for the default value of the configuration.
+        /// </summary>
+        public const int DefaultValueMaxLength = 500;
+    }
+
+    /// <summary>
+    /// Defines domain error scenarios specific to <see cref="Setting"/> operations.
+    /// These errors are returned via the <see cref="ErrorOr"/> pattern for robust error handling.
+    /// </summary>
+    public static class Errors
+    {
+        /// <summary>
+        /// Error indicating that the configuration key is missing or empty.
+        /// </summary>
+        public static Error KeyRequired => Error.Validation(
+            code: "Configuration.KeyRequired",
+            description: "Configuration key is required.");
+
+        /// <summary>
+        /// Error indicating that the configuration value is missing or empty during an update.
+        /// </summary>
+        public static Error ValueRequired => Error.Validation(
+            code: "Configuration.ValueRequired",
+            description: "Configuration value is required.");
+            
+        /// <summary>
+        /// Error indicating that a requested configuration could not be found.
+        /// </summary>
+        public static Error NotFound => Error.NotFound(
+            code: "Configuration.NotFound",
+            description: "Configuration not found.");
+    }
+}
