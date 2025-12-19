@@ -15,6 +15,7 @@ using ReSys.Shop.Core.Domain.Identity.Users.Claims;
 using ReSys.Shop.Core.Domain.Identity.Users.Logins;
 using ReSys.Shop.Core.Domain.Identity.Users.Roles;
 using ReSys.Shop.Core.Domain.Identity.Users.Tokens;
+using ReSys.Shop.Infrastructure.Persistence.Configurations.Catalog.OptionTypes;
 
 namespace ReSys.Shop.Infrastructure.Persistence.Contexts;
 
@@ -32,7 +33,7 @@ public sealed class ApplicationDbContext(
         builder.HasPostgresExtension(name: "vector");
         builder.HasDefaultSchema(schema: Schema.Default);
 
-        builder.ApplyConfigurationsFromAssembly(assembly: typeof(OptionType).Assembly);
+        builder.ApplyConfigurationsFromAssembly(assembly: typeof(OptionTypeConfiguration).Assembly);
         builder.ApplyUtcConversions();
 
     }

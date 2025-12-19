@@ -54,16 +54,6 @@ public sealed class OptionTypeConfiguration : IEntityTypeConfiguration<OptionTyp
             .IsRequired()
             .HasComment(comment: "Position: The display order of the option type.");
 
-        builder.Property(propertyExpression: ot => ot.PublicMetadata)
-            .HasColumnType(typeName: "jsonb")
-            .IsRequired(required: false)
-            .HasComment(comment: "PublicMetadata: JSONB field for public-facing key-value pairs (metadata).");
-
-        builder.Property(propertyExpression: ot => ot.PrivateMetadata)
-            .HasColumnType(typeName: "jsonb")
-            .IsRequired(required: false)
-            .HasComment(comment: "PrivateMetadata: JSONB field for internal or sensitive key-value pairs (metadata).");
-
         builder.ConfigureParameterizableName();
         builder.ConfigurePosition();
         builder.ConfigureMetadata();
