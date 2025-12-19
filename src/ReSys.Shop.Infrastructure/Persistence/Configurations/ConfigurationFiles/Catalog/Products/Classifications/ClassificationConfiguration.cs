@@ -1,0 +1,72 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+using ReSys.Shop.Core.Common.Constants;
+using ReSys.Shop.Core.Common.Domain.Concerns;
+using ReSys.Shop.Core.Domain.Catalog.Products.Classifications;
+
+namespace ReSys.Shop.Infrastructure.Persistence.Configurations.ConfigurationFiles.Catalog.Products.Classifications;
+
+/// <summary>
+/// Configures the database mapping for the <see cref="Classification"/> entity.
+/// </summary>
+public sealed class ClassificationConfiguration : IEntityTypeConfiguration<Classification>
+{
+    /// <summary>
+    /// Configures the entity of type <see cref="Classification"/>.
+    /// </summary>
+    /// <param name="builder">The builder to be used to configure the entity type.</param>
+    public void Configure(EntityTypeBuilder<Classification> builder)
+    {
+        #region Table
+
+        builder.ToTable(name: Schema.Classifications);
+        #endregion
+
+        #region Primary Key
+
+        builder.HasKey(keyExpression: c => c.Id);
+        #endregion
+
+        #region Indexes
+
+        builder.HasIndex(indexExpression: c => c.ProductId);
+        builder.HasIndex(indexExpression: c => c.TaxonId);
+        builder.HasIndex(indexExpression: c => new { c.ProductId, c.TaxonId }).IsUnique();
+        builder.HasIndex(indexExpression: c => c.Position);
+        #endregion
+
+        #region Properties
+
+        builder.ConfigurePosition();
+        builder.ConfigureAuditable();
+
+        builder.Property(propertyExpression: c => c.Id)
+            .HasColumnName(name: "id")
+            .HasComment(comment: "Id: Unique identifier for the classification. Value generated never.");
+
+        builder.Property(propertyExpression: c => c.ProductId)
+            .HasComment(comment: "ProductId: Foreign key to the associated Product.");
+
+        builder.Property(propertyExpression: c => c.TaxonId)
+            .HasComment(comment: "TaxonId: Foreign key to the associated Taxon.");
+
+        builder.Property(propertyExpression: c => c.Position)
+            .HasComment(comment: "Position: The display order of the classification within a taxon's product list.");
+
+        #endregion
+
+        #region Relationships
+
+        builder.HasOne(navigationExpression: c => c.Product)
+            .WithMany(navigationExpression: p => p.Classifications)
+            .HasForeignKey(foreignKeyExpression: c => c.ProductId)
+            .OnDelete(deleteBehavior: DeleteBehavior.Cascade);
+
+        builder.HasOne(navigationExpression: c => c.Taxon)
+            .WithMany(navigationExpression: t => t.Classifications)
+            .HasForeignKey(foreignKeyExpression: c => c.TaxonId)
+            .OnDelete(deleteBehavior: DeleteBehavior.Cascade);
+        #endregion
+    }
+}
