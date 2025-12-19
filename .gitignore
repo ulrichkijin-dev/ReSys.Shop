@@ -482,8 +482,5 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
-docs/thesis/samples/B1910402_TranThiKimLinh_LawOffice.pdf
-docs/thesis/samples/CTU_PowerPoint_Template_English.pptx
-docs/thesis/samples/Do an Do Duc Long D19 CNPM.pdf
-docs/thesis/samples/THESIS_PDF_V3.pdf
-docs/thesis/samples/ThesisTemplate.docx.pdf
+docs/thesis/samples/
+docs/thesis/main.pdf
