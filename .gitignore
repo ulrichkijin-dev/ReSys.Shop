@@ -484,3 +484,4 @@ $RECYCLE.BIN/
 *.swp
 docs/thesis/samples/
 docs/thesis/main.pdf
+/src/ReSys.Shop.Api/appsettings.Development.json
