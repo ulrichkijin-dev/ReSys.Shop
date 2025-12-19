@@ -1,0 +1,87 @@
+﻿using Microsoft.Extensions.Options;
+
+namespace ReSys.Shop.Infrastructure.Notifications.Options;
+
+public sealed class SmtpOptions : IValidateOptions<SmtpOptions>
+{
+    public const string Section = "Notifications:SmtpOptions";
+
+    public bool EnableEmailNotifications { get; init; }
+    public string Provider { get; init; } = "papercut";
+    public string FromEmail { get; set; } = string.Empty;
+    public string FromName { get; set; } = string.Empty;
+    public int? MaxAttachmentSize { get; set; } = 25;
+
+    public SmtpConfig? SmtpConfig { get; init; }
+    public SendGridConfig? SendGridConfig { get; init; }
+
+    public ValidateOptionsResult Validate(string? name, SmtpOptions options)
+    {
+        List<string> errors = [];
+
+        if (options.EnableEmailNotifications)
+        {
+            if (string.IsNullOrEmpty(value: options.FromEmail))
+            {
+                errors.Add(item: "FromEmail must be provided when email notifications are enabled.");
+            }
+
+            if (string.IsNullOrEmpty(value: options.FromName))
+            {
+                errors.Add(item: "FromName must be provided when email notifications are enabled.");
+            }
+        }
+
+        if (string.IsNullOrEmpty(value: options.Provider))
+        {
+            errors.Add(item: "Provider is required.");
+        }
+        else if (options.Provider != "papercut" && options.Provider != "smtp" && options.Provider != "sendgrid")
+        {
+            errors.Add(item: $"Invalid provider: {options.Provider}. Allowed values are 'papercut', 'smtp', 'sendgrid'.");
+        }
+
+        if (options.Provider == "smtp" && options.SmtpConfig != null)
+        {
+            if (string.IsNullOrEmpty(value: options.SmtpConfig.Host))
+            {
+                errors.Add(item: "SmtpConfig Host is required for 'smtp' provider.");
+            }
+
+            if (options.SmtpConfig.Port <= 0)
+            {
+                errors.Add(item: "SmtpConfig Port must be a positive integer.");
+            }
+        }
+
+        if (options.Provider == "sendgrid" && options.SendGridConfig != null)
+        {
+            if (string.IsNullOrEmpty(value: options.SendGridConfig.ApiKey))
+            {
+                errors.Add(item: "SendGridConfig ApiKey is required for 'sendgrid' provider.");
+            }
+        }
+
+        if (errors.Count > 0)
+        {
+            return ValidateOptionsResult.Fail(failures: errors);
+        }
+
+        return ValidateOptionsResult.Success;
+    }
+}
+
+public sealed class SmtpConfig
+{
+    public string Host { get; init; } = "localhost";
+    public int Port { get; init; } = 25;
+    public bool EnableSsl { get; init; }
+    public bool UseDefaultCredentials { get; init; } = true;
+    public string? Username { get; init; }
+    public string? Password { get; init; }
+}
+
+public sealed class SendGridConfig
+{
+    public string ApiKey { get; init; } = null!;
+}
