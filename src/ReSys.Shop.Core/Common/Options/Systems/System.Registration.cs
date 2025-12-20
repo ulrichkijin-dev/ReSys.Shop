@@ -77,6 +77,28 @@ public static class SystemConfiguration
                            propertyValue: StorefrontOption.Section);
             }
 
+            // --- Image Service (ML) Options ---
+            IConfigurationSection imageServiceSection = configuration.GetSection(key: ImageServiceOption.Section);
+            if (imageServiceSection.Exists())
+            {
+                Log.Debug(messageTemplate: LogTemplates.ConfigLoaded,
+                         propertyValue0: nameof(ImageServiceOption),
+                         propertyValue1: new { Section = ImageServiceOption.Section });
+
+                services
+                    .AddOptions<ImageServiceOption>()
+                    .Bind(config: imageServiceSection)
+                    .ValidateOnStart()
+                    .Services.AddSingleton<IValidateOptions<ImageServiceOption>, SystemOptionValidator<ImageServiceOption>>();
+
+                optionsCount++;
+            }
+            else
+            {
+                Log.Warning(messageTemplate: "Configuration section '{Section}' not found.",
+                           propertyValue: ImageServiceOption.Section);
+            }
+
             stopwatch.Stop();
 
             Log.Information(
@@ -92,7 +114,8 @@ public static class SystemConfiguration
                     Options = new[]
                     {
                         AdminPanelOption.Section,
-                        StorefrontOption.Section
+                        StorefrontOption.Section,
+                        ImageServiceOption.Section
                     }
                 });
 

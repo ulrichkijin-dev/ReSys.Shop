@@ -84,7 +84,7 @@ public sealed class UploadOptions
             variantId: variantId,
             type: type.ToString());
 
-        var storageFileName = ProductImage.Constraints.GetStorageFileName(
+        var storageFileName =  ProductImage.Constraints.GetStorageFileName(
             type: type.ToString(),
             contentType: contentType);
 
