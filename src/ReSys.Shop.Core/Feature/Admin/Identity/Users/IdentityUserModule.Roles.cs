@@ -1,0 +1,168 @@
+using Mapster;
+
+using MapsterMapper;
+
+using Microsoft.AspNetCore.Identity;
+
+using ReSys.Shop.Core.Common.Services.Security.Authentication.Contexts;
+using ReSys.Shop.Core.Domain.Identity.Roles;
+using ReSys.Shop.Core.Domain.Identity.Users;
+
+namespace  ReSys.Shop.Core.Feature.Admin.Identity.Users;
+
+public static partial class IdentityUserModule
+{
+    public static class Roles
+    {
+        // Get Roles:
+        public static class GetList
+        {
+            public sealed class Parameter
+            {
+                public string? UserId { get; set; }
+            }
+            public sealed record Result : Models.RoleItem;
+            public sealed record Query(Parameter Parameter) : IQuery<List<Result>>;
+
+            public sealed class QueryHandler(
+                UserManager<User> userManager,
+                RoleManager<Role> roleManager,
+                IMapper mapper,
+                IUserContext userContext
+            ) : IQueryHandler<Query, List<Result>>
+            {
+                public async Task<ErrorOr<List<Result>>> Handle(Query query, CancellationToken cancellationToken)
+                {
+                    var userId = query.Parameter.UserId ?? userContext.UserId ?? Guid.Empty.ToString();
+                    var user = await userManager.FindByIdAsync(userId);
+                    if (user == null)
+                        return User.Errors.NotFound(userId);
+
+                    var userRoleNames = await userManager.GetRolesAsync(user);
+                    var roles = await roleManager.Roles
+                        .Where(r => userRoleNames.Contains(r.Name!))
+                        .AsQueryable()
+                        .AsNoTracking()
+                        .ProjectToType<Result>(config: mapper.Config)
+                        .ToListAsync(cancellationToken: cancellationToken);
+
+                    return roles;
+                }
+            }
+        }
+
+        // Assign Role:
+        public static class Assign
+        {
+            public sealed record Request(string RoleName);
+            public sealed record Command(string? UserId, Request Request) : ICommand<Success>;
+
+            public sealed class CommandValidator : AbstractValidator<Command>
+            {
+                public CommandValidator()
+                {
+                    RuleFor(x => x.Request.RoleName).NotEmpty().WithMessage("Role name is required.");
+                }
+            }
+
+            public sealed class CommandHandler(
+                UserManager<User> userManager,
+                RoleManager<Role> roleManager,
+                IApplicationDbContext applicationDbContext,
+                IUserContext userContext
+            ) : ICommandHandler<Command, Success>
+            {
+                public async Task<ErrorOr<Success>> Handle(Command command, CancellationToken cancellationToken)
+                {
+                    var userId = command.UserId ?? userContext.UserId ?? Guid.Empty.ToString();
+                    var user = await userManager.FindByIdAsync(userId);
+                    if (user == null)
+                        return User.Errors.NotFound(userId);
+
+                    var roleExists = await roleManager.RoleExistsAsync(command.Request.RoleName);
+                    if (!roleExists)
+                    {
+                        return Error.NotFound(code: "Role.NotFound", description: $"Role '{command.Request.RoleName}' not found.");
+                    }
+
+                    var isInRole = await userManager.IsInRoleAsync(user, command.Request.RoleName);
+                    if (isInRole)
+                    {
+                        return Error.Conflict(code: "UserRole.AlreadyAssigned", description: $"User is already in role '{command.Request.RoleName}'.");
+                    }
+
+                    await applicationDbContext.BeginTransactionAsync(cancellationToken: cancellationToken);
+
+                    var result = await userManager.AddToRoleAsync(user, command.Request.RoleName);
+                    if (!result.Succeeded)
+                    {
+                        var errors = result.Errors.Select(e => Error.Validation(e.Code, e.Description)).ToList();
+                        return errors;
+                    }
+
+                    await applicationDbContext.SaveChangesAsync(cancellationToken: cancellationToken);
+                    await applicationDbContext.CommitTransactionAsync(cancellationToken: cancellationToken);
+
+                    return Result.Success;
+                }
+            }
+        }
+
+        // Unassign Role:
+        public static class Unassign
+        {
+            public sealed record Request(string RoleName);
+            public sealed record Command(string? UserId, Request Request) : ICommand<Success>;
+
+            public sealed class CommandValidator : AbstractValidator<Command>
+            {
+                public CommandValidator()
+                {
+                    RuleFor(x => x.Request.RoleName).NotEmpty().WithMessage("Role name is required.");
+                }
+            }
+
+            public sealed class CommandHandler(
+                UserManager<User> userManager,
+                RoleManager<Role> roleManager,
+                IApplicationDbContext applicationDbContext,
+                IUserContext userContext
+            ) : ICommandHandler<Command, Success>
+            {
+                public async Task<ErrorOr<Success>> Handle(Command command, CancellationToken cancellationToken)
+                {
+                    var userId = command.UserId ?? userContext.UserId ?? Guid.Empty.ToString();
+                    var user = await userManager.FindByIdAsync(userId);
+                    if (user == null)
+                        return User.Errors.NotFound(userId);
+
+                    var roleExists = await roleManager.RoleExistsAsync(command.Request.RoleName);
+                    if (!roleExists)
+                    {
+                        return Error.NotFound(code: "Role.NotFound", description: $"Role '{command.Request.RoleName}' not found.");
+                    }
+
+                    var isInRole = await userManager.IsInRoleAsync(user, command.Request.RoleName);
+                    if (!isInRole)
+                    {
+                        return Error.NotFound(code: "UserRole.NotAssigned", description: $"User is not in role '{command.Request.RoleName}'.");
+                    }
+
+                    await applicationDbContext.BeginTransactionAsync(cancellationToken: cancellationToken);
+
+                    var result = await userManager.RemoveFromRoleAsync(user, command.Request.RoleName);
+                    if (!result.Succeeded)
+                    {
+                        var errors = result.Errors.Select(e => Error.Validation(e.Code, e.Description)).ToList();
+                        return errors;
+                    }
+
+                    await applicationDbContext.SaveChangesAsync(cancellationToken: cancellationToken);
+                    await applicationDbContext.CommitTransactionAsync(cancellationToken: cancellationToken);
+
+                    return Result.Success;
+                }
+            }
+        }
+    }
+}
