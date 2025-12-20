@@ -1200,15 +1200,15 @@ public static partial class CommonInput
         string? field = null,
         string? msg = null) =>
         rb.NotNull()
-            .WithErrorCode(errorCode: CommonInput.Errors.Null(prefix: prefix,
+            .WithErrorCode(errorCode: Errors.Null(prefix: prefix,
                 field: field).Code)
-            .WithMessage(errorMessage: CommonInput.Errors.Null(prefix: prefix,
+            .WithMessage(errorMessage: Errors.Null(prefix: prefix,
                 field: field,
                 msg: msg).Description)
             .NotEmpty()
-            .WithErrorCode(errorCode: CommonInput.Errors.NullOrEmpty(prefix: prefix,
+            .WithErrorCode(errorCode: Errors.NullOrEmpty(prefix: prefix,
                 field: field).Code)
-            .WithMessage(errorMessage: CommonInput.Errors.NullOrEmpty(prefix: prefix,
+            .WithMessage(errorMessage: Errors.NullOrEmpty(prefix: prefix,
                 field: field,
                 msg: msg).Description);
 
