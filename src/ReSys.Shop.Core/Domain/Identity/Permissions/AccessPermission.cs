@@ -341,6 +341,8 @@ public sealed class AccessPermission : AuditableEntity
     /// This method parses the name into its area, resource, and action segments and then calls
     /// the primary <see cref="Create(string, string, string, string?, string?, string?, PermissionCategory)"/> method.
     /// </summary>
+    /// <param name="adminSettingSettingCreate"></param>
+    /// <param name="setting"></param>
     /// <param name="name">The full permission name string (e.g., "admin.user.create").</param>
     /// <param name="displayName">Optional: a human-readable name. If null, automatically generated.</param>
     /// <param name="description">Optional: a detailed explanation. If null, automatically generated.</param>
@@ -356,8 +358,7 @@ public sealed class AccessPermission : AuditableEntity
     /// <remarks>
     /// This overload is convenient for defining permissions using their canonical string representation.
     /// </remarks>
-    public static ErrorOr<AccessPermission> Create(
-        string name,
+    public static ErrorOr<AccessPermission> Create(string name,
         string? displayName = null,
         string? description = null,
         string? value = null,
