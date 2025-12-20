@@ -1,4 +1,6 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Microsoft.Extensions.Options;
+using ReSys.Shop.Infrastructure.Security.Authentication.Externals.Options;
+using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -57,8 +59,8 @@ public static class SwaggerConfiguration
 
     internal static IApplicationBuilder UseSwaggerWithUi(this WebApplication app)
     {
-        // GoogleOption googleOptions = app.Services.GetRequiredService<IOptions<GoogleOption>>().Value;
-        // FacebookOption facebookOptions = app.Services.GetRequiredService<IOptions<FacebookOption>>().Value;
+        GoogleOption googleOptions = app.Services.GetRequiredService<IOptions<GoogleOption>>().Value;
+        FacebookOption facebookOptions = app.Services.GetRequiredService<IOptions<FacebookOption>>().Value;
 
         app.UseSwagger(setupAction: options => options.RouteTemplate = "/openapi/{documentName}.json");
         app.UseSwaggerUI(setupAction: c =>
@@ -67,21 +69,21 @@ public static class SwaggerConfiguration
                 name: "Stellar FashionShop API V1");
             c.RoutePrefix = string.Empty;
 
-            //// OAuth2 configuration for Google (uses PKCE)
-            //c.OAuthClientId(value: googleOptions.ClientId);
-            //c.OAuthAppName(value: "Stellar FashionShop API");
-            //c.OAuthUsePkce();
-            //c.OAuthScopeSeparator(value: " ");
+            // OAuth2 configuration for Google (uses PKCE)
+            c.OAuthClientId(value: googleOptions.ClientId);
+            c.OAuthAppName(value: "Stellar FashionShop API");
+            c.OAuthUsePkce();
+            c.OAuthScopeSeparator(value: " ");
 
-            //// OAuth2 configuration for Facebook
-            //c.OAuthAdditionalQueryStringParams(value: new Dictionary<string, string>
-            //{
-            //    { "response_type", "code" },
-            //    { "client_id", facebookOptions.AppId }
-            //});
+            // OAuth2 configuration for Facebook
+            c.OAuthAdditionalQueryStringParams(value: new Dictionary<string, string>
+            {
+                { "response_type", "code" },
+                { "client_id", facebookOptions.AppId }
+            });
 
-            //// Set OAuth2 redirect URL (adjust based on your configuration)
-            //c.OAuth2RedirectUrl(url: $"{app.Configuration[key: "BaseUrl"] ?? "https://localhost"}/swagger/oauth2-redirect.html");
+            // Set OAuth2 redirect URL (adjust based on your configuration)
+            c.OAuth2RedirectUrl(url: $"{app.Configuration[key: "BaseUrl"] ?? "https://localhost"}/swagger/oauth2-redirect.html");
 
             // For Facebook, if you need client secret (not recommended for public clients)
             // c.OAuthClientSecret(facebookOptions.ClientSecret);

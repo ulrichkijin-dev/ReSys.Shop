@@ -129,7 +129,7 @@ public sealed class Setting : Aggregate<Guid>
         // Basic validation as per existing domain entities (e.g., Product.cs)
         if (string.IsNullOrWhiteSpace(value: key))
         {
-            return Setting.Errors.KeyRequired;
+            return Errors.KeyRequired;
         }
 
         // Additional validation can be added here if needed,
@@ -157,7 +157,7 @@ public sealed class Setting : Aggregate<Guid>
     {
         if (string.IsNullOrWhiteSpace(value: newValue))
         {
-            return Setting.Errors.ValueRequired;
+            return Errors.ValueRequired;
         }
         
         // Add specific parsing/casting logic based on ValueType if necessary for validation
