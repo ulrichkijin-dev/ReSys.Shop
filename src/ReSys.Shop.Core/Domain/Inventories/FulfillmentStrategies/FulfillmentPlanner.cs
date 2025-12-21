@@ -25,25 +25,20 @@ public class FulfillmentPlanner(FulfillmentStrategyFactory strategyFactory, IApp
 
         foreach (var lineItem in allLineItems)
         {
-            var variant =await applicationDbContext.Set<Variant>()
+            var variant = await applicationDbContext.Set<Variant>()
                 .Include(v => v.StockItems)
                 .ThenInclude(si => si.StockLocation)
                 .FirstOrDefaultAsync(v => v.Id == lineItem.VariantId, cancellationToken);
 
-            if (variant is null)
-            {
-                continue;
-            }
+            if (variant is null) continue;
 
-            var availableLocations = variant.StockItems
-                .Where(si => si.CountAvailable >= lineItem.Quantity)
+            // Find locations that have stock OR are backorderable
+            var potentialLocations = variant.StockItems
+                .Where(si => si.InStock || si.Backorderable)
                 .Select(si => si.StockLocation)
                 .ToList();
 
-            if (!availableLocations.Any())
-            {
-                continue;
-            }
+            if (!potentialLocations.Any()) continue;
 
             var customerLat = order.ShipAddressLatitude;
             var customerLon = order.ShipAddressLongitude;
@@ -51,32 +46,35 @@ public class FulfillmentPlanner(FulfillmentStrategyFactory strategyFactory, IApp
             var selectedLocation = strategy.SelectLocation(
                 variant: variant,
                 requiredQuantity: lineItem.Quantity,
-                availableLocations: availableLocations,
+                availableLocations: potentialLocations,
                 customerLatitude: customerLat,
                 customerLongitude: customerLon
             );
 
-            if (selectedLocation is null)
-            {
-                continue;
-            }
+            if (selectedLocation is null) continue;
 
-            var shipmentPlan =
-                fulfillmentShipmentPlans.FirstOrDefault(predicate: p => p.FulfillmentLocationId == selectedLocation.Id);
+            var stockItem = variant.StockItems.First(si => si.StockLocationId == selectedLocation.Id);
+            bool isBackordered = stockItem.CountAvailable < lineItem.Quantity;
+
+            var shipmentPlan = fulfillmentShipmentPlans.FirstOrDefault(p => p.FulfillmentLocationId == selectedLocation.Id);
             if (shipmentPlan is null)
             {
-                var shipmentPlanResult = FulfillmentShipmentPlan.Create(fulfillmentLocationId: selectedLocation.Id, items: new List<FulfillmentItem>());
+                var shipmentPlanResult = FulfillmentShipmentPlan.Create(selectedLocation.Id, new List<FulfillmentItem>());
                 if (shipmentPlanResult.IsError) return shipmentPlanResult.Errors;
-
                 shipmentPlan = shipmentPlanResult.Value;
-                fulfillmentShipmentPlans.Add(item: shipmentPlan);
+                fulfillmentShipmentPlans.Add(shipmentPlan);
             }
 
-            var fulfillmentItemResult = FulfillmentItem.Create(lineItemId: lineItem.Id, variantId: variant.Id, quantity: lineItem.Quantity);
+            var fulfillmentItemResult = FulfillmentItem.Create(
+                lineItemId: lineItem.Id, 
+                variantId: variant.Id, 
+                quantity: lineItem.Quantity,
+                isBackordered: isBackordered);
+
             if (fulfillmentItemResult.IsError) return fulfillmentItemResult.Errors;
 
-            shipmentPlan.Items.Add(item: fulfillmentItemResult.Value);
-            fulfilledLineItemIds.Add(item: lineItem.Id);
+            shipmentPlan.Items.Add(fulfillmentItemResult.Value);
+            fulfilledLineItemIds.Add(lineItem.Id);
         }
 
         var totalItems = allLineItems.Count;

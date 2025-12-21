@@ -272,6 +272,11 @@ public class Order : Aggregate, IHasMetadata
     public string? AdhocCustomerId { get; private set; }
 
     /// <summary>
+    /// Unique token for guest checkout access.
+    /// </summary>
+    public string? GuestToken { get; private set; }
+
+    /// <summary>
     /// Foreign key reference to the Promotion applied to this order (nullable if no promotion).
     /// Only one promotion allowed per order; replaces previous promotion if reapplied.
     /// </summary>
@@ -483,6 +488,14 @@ public class Order : Aggregate, IHasMetadata
     /// </summary>
     public bool IsFullyDigital => LineItems.Any() && LineItems.All(predicate: li => li.Variant.Product.IsDigital);
 
+    /// <summary>
+    /// Indicates whether the order is ready to receive payments.
+    /// Requires items, addresses (if physical), and shipping method (if physical).
+    /// </summary>
+    public bool IsReadyForPayment => 
+        LineItems.Any() && 
+        (IsFullyDigital || (ShipAddress != null && BillAddress != null && ShippingMethodId.HasValue));
+
     #endregion
 
     #region Constructors
@@ -535,6 +548,7 @@ public class Order : Aggregate, IHasMetadata
             StoreId = storeId,
             UserId = userId,
             AdhocCustomerId = adhocId,
+            GuestToken = Guid.NewGuid().ToString("N"),
             Email = email?.Trim(),
             Number = GenerateOrderNumber(),
             State = OrderState.Cart,
@@ -548,12 +562,12 @@ public class Order : Aggregate, IHasMetadata
 
     #endregion
 
-    #region Private Helpers
+    #region Internal Helpers
 
     /// <summary>
     /// Adds a new entry to the order's history log.
     /// </summary>
-    private ErrorOr<OrderHistory> AddHistoryEntry(string description, OrderState toState, OrderState? fromState = null,
+    internal ErrorOr<OrderHistory> AddHistoryEntry(string description, OrderState toState, OrderState? fromState = null,
         string? triggeredBy = "System", IDictionary<string, object?>? context = null)
     {
         var from = fromState ?? State;
@@ -809,6 +823,40 @@ public class Order : Aggregate, IHasMetadata
         UserId = userId;
         AdhocCustomerId = null;
         UpdatedAt = DateTimeOffset.UtcNow;
+
+        return this;
+    }
+
+    /// <summary>
+    /// Removes all line items from the order and recalculates totals.
+    /// Only available in Cart state.
+    /// </summary>
+    public ErrorOr<Order> Empty()
+    {
+        if (State != OrderState.Cart)
+        {
+            return Error.Validation(code: "Order.CannotEmptyNonCart", description: "Only orders in cart state can be emptied.");
+        }
+
+        LineItems.Clear();
+        var result = RecalculateTotals();
+        if (result.IsError) return result.Errors;
+
+        AddDomainEvent(new Events.OrderEmptied(Id));
+        return this;
+    }
+
+    /// <summary>
+    /// Approves the order. Typically used by an admin to mark a flagged or guest order as valid.
+    /// </summary>
+    public ErrorOr<Order> Approve(string approvedBy)
+    {
+        // Simple implementation: track via history and potentially a metadata flag
+        AddHistoryEntry(description: $"Order approved by {approvedBy}.", toState: State, triggeredBy: approvedBy);
+        
+        PublicMetadata ??= new Dictionary<string, object?>();
+        PublicMetadata["ApprovedBy"] = approvedBy;
+        PublicMetadata["ApprovedAt"] = DateTimeOffset.UtcNow;
 
         return this;
     }
@@ -1262,11 +1310,15 @@ public class Order : Aggregate, IHasMetadata
 
             for (int i = 0; i < fulfillmentItem.Quantity; i++)
             {
+                var initialState = fulfillmentItem.IsBackordered
+                    ? InventoryUnit.InventoryUnitState.Backordered
+                    : InventoryUnit.InventoryUnitState.OnHand;
+
                 var inventoryUnitResult = InventoryUnit.Create(
                     variantId: fulfillmentItem.VariantId,
                     lineItemId: fulfillmentItem.LineItemId,
                     shipmentId: shipment.Id,
-                    initialState: InventoryUnit.InventoryUnitState.OnHand, pending: true);
+                    initialState: initialState, pending: true);
 
                 if (inventoryUnitResult.IsError) return inventoryUnitResult.Errors;
                 var inventoryUnit = inventoryUnitResult.Value;
@@ -1279,6 +1331,75 @@ public class Order : Aggregate, IHasMetadata
         AddDomainEvent(domainEvent: new Events.ShipmentCreated(OrderId: Id, ShipmentId: shipment.Id, FulfillmentLocationId: fulfillmentLocationId));
 
         return shipment;
+    }
+
+    public ErrorOr<Success> AddItemToShipment(Guid shipmentId, Variant variant, int quantity, bool isBackordered = false)
+    {
+        var shipment = Shipments.FirstOrDefault(s => s.Id == shipmentId);
+        if (shipment == null) return Shipment.Errors.NotFound(shipmentId);
+
+        // Ensure line item exists or create it
+        var lineItem = LineItems.FirstOrDefault(li => li.VariantId == variant.Id);
+        if (lineItem == null)
+        {
+            var addLineResult = AddLineItem(variant, quantity);
+            if (addLineResult.IsError) return addLineResult.Errors;
+            lineItem = LineItems.First(li => li.VariantId == variant.Id);
+        }
+        else
+        {
+            // If it exists, we might need to increase its quantity if we are adding "new" items
+            var updateResult = lineItem.UpdateQuantity(lineItem.Quantity + quantity);
+            if (updateResult.IsError) return updateResult.Errors;
+            var recalcResult = RecalculateTotals();
+            if (recalcResult.IsError) return recalcResult.Errors;
+        }
+
+        // Create inventory units for the shipment
+        var initialState = isBackordered ? InventoryUnit.InventoryUnitState.Backordered : InventoryUnit.InventoryUnitState.OnHand;
+
+        for (int i = 0; i < quantity; i++)
+        {
+            var unitResult = InventoryUnit.Create(variant.Id, lineItem.Id, shipment.Id, initialState);
+            if (unitResult.IsError) return unitResult.Errors;
+            
+            shipment.InventoryUnits.Add(unitResult.Value);
+            lineItem.InventoryUnits.Add(unitResult.Value);
+        }
+
+        AddDomainEvent(new Events.ShipmentItemUpdated(Id, shipmentId, variant.Id));
+
+        return Result.Success;
+    }
+
+    public ErrorOr<Success> RemoveItemFromShipment(Guid shipmentId, Guid variantId, int quantity)
+    {
+        var shipment = Shipments.FirstOrDefault(s => s.Id == shipmentId);
+        if (shipment == null) return Shipment.Errors.NotFound(shipmentId);
+
+        var unitsToRemove = shipment.InventoryUnits
+            .Where(u => u.VariantId == variantId && u.IsPreShipment)
+            .Take(quantity)
+            .ToList();
+
+        if (unitsToRemove.Count < quantity)
+            return Error.Validation(code: "Order.InsufficientUnitsInShipment", description: "Not enough shippable units of this variant in the shipment.");
+
+        foreach (var unit in unitsToRemove)
+        {
+            shipment.InventoryUnits.Remove(unit);
+            var lineItem = LineItems.FirstOrDefault(li => li.Id == unit.LineItemId);
+            if (lineItem != null)
+            {
+                lineItem.InventoryUnits.Remove(unit);
+                // Optionally decrease line item quantity? Spree usually does if requested.
+                // For simplicity, we just deallocate from shipment here.
+            }
+        }
+
+        AddDomainEvent(new Events.ShipmentItemUpdated(Id, shipmentId, variantId));
+
+        return Result.Success;
     }
 
     #endregion
@@ -1391,6 +1512,15 @@ public class Order : Aggregate, IHasMetadata
 
         /// <summary>Published when an order's totals need to be recalculated.</summary>
         public sealed record OrderRecalculationRequested(Guid OrderId) : DomainEvent;
+
+        /// <summary>Published when an order is emptied (all line items removed).</summary>
+        public sealed record OrderEmptied(Guid OrderId) : DomainEvent;
+
+        /// <summary>Published when a shipment is moved back to Pending state.</summary>
+        public sealed record MovedToPending(Guid ShipmentId, Guid OrderId, Guid StockLocationId) : DomainEvent;
+
+        /// <summary>Published when inventory for a specific variant is updated in a shipment.</summary>
+        public sealed record ShipmentItemUpdated(Guid OrderId, Guid ShipmentId, Guid VariantId) : DomainEvent;
     }
 
     #endregion

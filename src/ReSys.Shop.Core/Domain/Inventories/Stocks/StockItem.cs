@@ -551,9 +551,89 @@ public sealed class StockItem : Aggregate, IHasMetadata
                 {
                     return this;
                 }
-                else
+                
+                var diff = quantity - existingReservedQuantity;
+                
+                // If increasing reservation
+                if (diff > 0)
                 {
-                    return Errors.DuplicateReservation(orderId: orderId.Value, existingQuantity: existingReservedQuantity, requestedQuantity: quantity);
+                    var newTotalReserved = QuantityReserved + diff;
+                    
+                    if (!Backorderable && newTotalReserved > QuantityOnHand)
+                        return Errors.InsufficientStock(available: CountAvailable, requested: diff);
+                        
+                    if (Backorderable && newTotalReserved > QuantityOnHand)
+                    {
+                        var newBackorderAmount = newTotalReserved - QuantityOnHand;
+                        var currentBackordered = CurrentBackorderQuantity;
+
+                        if (MaxBackorderQuantity != Constraints.UnlimitedBackorder)
+                        {
+                            if (newBackorderAmount > MaxBackorderQuantity)
+                            {
+                                return Errors.BackorderLimitExceeded(
+                                    limit: MaxBackorderQuantity,
+                                    requested: diff,
+                                    currentBackordered: currentBackordered);
+                            }
+                        }
+                    }
+
+                    QuantityReserved += diff;
+                    _reservations[orderId.Value] = quantity;
+                    UpdatedAt = DateTimeOffset.UtcNow;
+
+                    var incMovement = StockMovement.Create(
+                        stockItemId: Id,
+                        quantity: -diff,
+                        originator: StockMovement.MovementOriginator.Order,
+                        action: StockMovement.MovementAction.Reserved,
+                        reason: $"Order {orderId} (Update)",
+                        originatorId: orderId);
+
+                    if (incMovement.IsError) return incMovement.FirstError;
+                    StockMovements.Add(incMovement.Value);
+                    
+                     AddDomainEvent(
+                        domainEvent: new Events.StockReserved(
+                            StockItemId: Id,
+                            VariantId: VariantId,
+                            StockLocationId: StockLocationId,
+                            Quantity: diff,
+                            OrderId: orderId));
+                            
+                    return this;
+                }
+                else // Decreasing reservation (release)
+                {
+                    var releaseAmount = -diff;
+                    // Reuse Release logic effectively
+                    QuantityReserved -= releaseAmount;
+                    _reservations[orderId.Value] = quantity;
+                    if (quantity <= 0) _reservations.Remove(orderId.Value);
+                    
+                    UpdatedAt = DateTimeOffset.UtcNow;
+                    
+                    var decMovement = StockMovement.Create(
+                        stockItemId: Id,
+                        quantity: releaseAmount,
+                        originator: StockMovement.MovementOriginator.Order,
+                        action: StockMovement.MovementAction.Released,
+                        reason: $"Order {orderId} (Update)",
+                        originatorId: orderId);
+
+                    if (decMovement.IsError) return decMovement.FirstError;
+                    StockMovements.Add(decMovement.Value);
+                    
+                    AddDomainEvent(
+                        domainEvent: new Events.StockReleased(
+                            StockItemId: Id,
+                            VariantId: VariantId,
+                            StockLocationId: StockLocationId,
+                            Quantity: releaseAmount,
+                            OrderId: orderId));
+                            
+                    return this;
                 }
             }
         }

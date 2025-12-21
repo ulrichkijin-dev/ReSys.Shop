@@ -8,8 +8,6 @@
 
   <ItemGroup>
     <Folder Include="Common\Services\Security\Authorization\Permissions\Constants\" />
-    <Folder Include="Feature\Catalog\" />
-    <Folder Include="Feature\Identity\" />
   </ItemGroup>
 
     <ItemGroup>
@@ -29,6 +27,7 @@
     <PackageReference Include="Pgvector.EntityFrameworkCore" />
     <PackageReference Include="Serilog" />
     <PackageReference Include="Slugify.Core" />
+    <PackageReference Include="Stripe.net" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
   </ItemGroup>
 

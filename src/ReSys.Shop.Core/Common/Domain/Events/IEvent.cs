@@ -1,6 +1,4 @@
-﻿using MediatR;
-
-namespace ReSys.Shop.Core.Common.Domain.Events;
+﻿namespace ReSys.Shop.Core.Common.Domain.Events;
 /// <summary>
 /// The base event interface that integrates with MediatR.
 /// All events can be published through MediatR's IMediator.

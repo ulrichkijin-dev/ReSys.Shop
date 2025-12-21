@@ -1,6 +1,4 @@
-﻿using MediatR;
-
-namespace ReSys.Shop.Core.Common.Domain.Mediators;
+﻿namespace ReSys.Shop.Core.Common.Domain.Mediators;
 
 /// <summary>
 /// Marker interface for base command types.

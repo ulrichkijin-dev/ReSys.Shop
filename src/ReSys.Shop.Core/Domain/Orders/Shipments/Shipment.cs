@@ -287,6 +287,44 @@ public sealed class Shipment : Aggregate
         return this;
     }
 
+    /// <summary>
+    /// Resumes a canceled shipment, moving it back to Pending.
+    /// </summary>
+    public ErrorOr<Shipment> Resume()
+    {
+        if (State != ShipmentState.Canceled)
+            return Error.Validation(code: "Shipment.NotCanceled", description: "Only canceled shipments can be resumed.");
+
+        State = ShipmentState.Pending;
+        UpdatedAt = DateTimeOffset.UtcNow;
+
+        AddDomainEvent(domainEvent: new Events.Resumed(
+            ShipmentId: Id,
+            OrderId: OrderId,
+            StockLocationId: StockLocationId));
+
+        return this;
+    }
+
+    /// <summary>
+    /// Moves a shipment back to Pending state from Ready.
+    /// </summary>
+    public ErrorOr<Shipment> ToPending()
+    {
+        if (State != ShipmentState.Ready && State != ShipmentState.ReadyToShip)
+            return Error.Validation(code: "Shipment.NotReady", description: "Shipment must be in Ready or ReadyToShip state to move back to Pending.");
+
+        State = ShipmentState.Pending;
+        UpdatedAt = DateTimeOffset.UtcNow;
+
+        AddDomainEvent(domainEvent: new Events.MovedToPending(
+            ShipmentId: Id,
+            OrderId: OrderId,
+            StockLocationId: StockLocationId));
+
+        return this;
+    }
+
     #endregion
 
     #region Business Logic - Tracking
@@ -347,6 +385,12 @@ public sealed class Shipment : Aggregate
 
         /// <summary>Published when a shipment's rates need to be refreshed.</summary>
         public sealed record ShipmentRatesRefreshRequested(Guid ShipmentId) : DomainEvent;
+
+        /// <summary>Published when a shipment is resumed from Canceled state.</summary>
+        public sealed record Resumed(Guid ShipmentId, Guid OrderId, Guid StockLocationId) : DomainEvent;
+
+        /// <summary>Published when a shipment is moved back to Pending state.</summary>
+        public sealed record MovedToPending(Guid ShipmentId, Guid OrderId, Guid StockLocationId) : DomainEvent;
     }
 
     #endregion

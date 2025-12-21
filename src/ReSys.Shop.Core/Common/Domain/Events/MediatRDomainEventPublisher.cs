@@ -1,6 +1,4 @@
-﻿using MediatR;
-
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 
 namespace ReSys.Shop.Core.Common.Domain.Events;
 

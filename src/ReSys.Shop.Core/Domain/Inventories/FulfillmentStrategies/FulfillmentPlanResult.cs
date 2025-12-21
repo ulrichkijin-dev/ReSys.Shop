@@ -80,8 +80,9 @@ public record FulfillmentItem
     public Guid LineItemId { get; init; }
     public Guid VariantId { get; init; }
     public int Quantity { get; init; }
+    public bool IsBackordered { get; init; }
 
-    public static ErrorOr<FulfillmentItem> Create(Guid lineItemId, Guid variantId, int quantity)
+    public static ErrorOr<FulfillmentItem> Create(Guid lineItemId, Guid variantId, int quantity, bool isBackordered = false)
     {
         if (lineItemId == Guid.Empty)
         {
@@ -100,7 +101,8 @@ public record FulfillmentItem
         {
             LineItemId = lineItemId,
             VariantId = variantId,
-            Quantity = quantity
+            Quantity = quantity,
+            IsBackordered = isBackordered
         };
         return item;
     }

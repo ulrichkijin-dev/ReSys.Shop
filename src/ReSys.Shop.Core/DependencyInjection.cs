@@ -5,8 +5,6 @@ using Mapster;
 
 using MapsterMapper;
 
-using MediatR;
-
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -315,7 +313,15 @@ public static class DependencyInjection
     /// </summary>
     private static void AddDomainServices(this IServiceCollection services)
     {
+        services.AddTransient<Feature.Admin.Catalog.Taxons.TaxonModule.Services.IHierarchy, Feature.Admin.Catalog.Taxons.TaxonModule.Services.HierarchyService>();
+        services.AddTransient<Feature.Admin.Catalog.Taxons.TaxonModule.Services.IRegeneration, Feature.Admin.Catalog.Taxons.TaxonModule.Services.RegenerationService>();
 
+        // Inventory & Fulfillment
+        services.AddSingleton<Domain.Inventories.FulfillmentStrategies.FulfillmentStrategyFactory>();
+        services.AddScoped<Domain.Inventories.FulfillmentStrategies.IFulfillmentPlanner, Domain.Inventories.FulfillmentStrategies.FulfillmentPlanner>();
+
+        // Payments
+        services.AddScoped<Domain.Orders.Payments.Gateways.PaymentProcessorFactory>();
     }
 
     #endregion

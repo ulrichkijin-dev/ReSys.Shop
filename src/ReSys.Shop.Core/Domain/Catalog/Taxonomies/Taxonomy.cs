@@ -1,5 +1,6 @@
 ﻿using ReSys.Shop.Core.Common.Domain.Concerns;
 using ReSys.Shop.Core.Common.Domain.Events;
+using ReSys.Shop.Core.Common.Services.Security.Authorization.Permissions.Constants;
 using ReSys.Shop.Core.Domain.Catalog.Taxonomies.Taxa;
 
 namespace ReSys.Shop.Core.Domain.Catalog.Taxonomies;

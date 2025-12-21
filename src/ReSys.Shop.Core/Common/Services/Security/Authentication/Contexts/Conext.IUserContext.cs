@@ -9,4 +9,5 @@ public interface IUserContext
     bool IsAuthenticated { get; }
     void SetAdhocCustomerId(string adhocCustomerId); 
     void SetStoreId(Guid storeId); 
+    
 }

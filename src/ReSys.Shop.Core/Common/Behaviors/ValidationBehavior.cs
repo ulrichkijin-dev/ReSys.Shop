@@ -1,7 +1,5 @@
 ﻿using FluentValidation.Results;
 
-using MediatR;
-
 namespace ReSys.Shop.Core.Common.Behaviors;
 
 /// <summary>

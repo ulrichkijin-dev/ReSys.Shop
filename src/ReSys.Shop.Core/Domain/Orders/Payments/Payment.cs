@@ -1,9 +1,10 @@
+using ReSys.Shop.Core.Common.Domain.Concerns;
 using ReSys.Shop.Core.Common.Domain.Events;
 using ReSys.Shop.Core.Domain.Settings.PaymentMethods;
 
 namespace ReSys.Shop.Core.Domain.Orders.Payments;
 
-public sealed class Payment : Aggregate
+public sealed class Payment : Aggregate, IHasMetadata
 {
     public enum PaymentState
     {
@@ -70,6 +71,9 @@ public sealed class Payment : Aggregate
     public DateTimeOffset? VoidedAt { get; set; }
     public string? FailureReason { get; set; }
     public string? IdempotencyKey { get; set; }
+
+    public IDictionary<string, object?>? PublicMetadata { get; set; } = new Dictionary<string, object?>();
+    public IDictionary<string, object?>? PrivateMetadata { get; set; } = new Dictionary<string, object?>();
     #endregion
 
     #region Relationships
@@ -125,12 +129,11 @@ public sealed class Payment : Aggregate
     /// <summary>
     /// Marks the payment as authorized, setting the transaction ID and state.
     /// </summary>
-    /// <param name="transactionId">The transaction ID provided by the payment gateway.</param>
-    /// <param name="gatewayAuthCode">Optional authorization code from the gateway.</param>
     public ErrorOr<Payment> MarkAsAuthorized(string transactionId, string? gatewayAuthCode = null)
     {
         if (State == PaymentState.Authorized) return this;
-        if (State != PaymentState.Pending && State != PaymentState.Authorizing)
+        
+        if (State != PaymentState.Pending && State != PaymentState.Authorizing && State != PaymentState.RequiresAction)
             return Errors.InvalidStateTransition(from: State, to: PaymentState.Authorized);
 
         ReferenceTransactionId = transactionId;
@@ -150,17 +153,19 @@ public sealed class Payment : Aggregate
     /// <summary>
     /// Marks the payment as captured (completed), setting the transaction ID and state.
     /// </summary>
-    /// <param name="transactionId">The transaction ID provided by the payment gateway for the capture. If null, it will use the existing ReferenceTransactionId.</param>
     public ErrorOr<Payment> MarkAsCaptured(string? transactionId = null)
     {
         if (State == PaymentState.Completed) return this;
-        if (State != PaymentState.Authorized && State != PaymentState.Capturing && State != PaymentState.RequiresAction)
+        
+        // Capture can only happen from Authorized or immediate Pending (if auto-capture)
+        if (State != PaymentState.Authorized && State != PaymentState.Pending)
             return Errors.InvalidStateTransition(from: State, to: PaymentState.Completed);
 
-        if (string.IsNullOrEmpty(value: transactionId))
+        ReferenceTransactionId = transactionId ?? ReferenceTransactionId;
+        
+        if (string.IsNullOrEmpty(ReferenceTransactionId))
             return Errors.ReferenceTransactionIdRequired;
 
-        ReferenceTransactionId = transactionId ?? ReferenceTransactionId;
         State = PaymentState.Completed;
         CapturedAt = DateTimeOffset.UtcNow;
         UpdatedAt = DateTimeOffset.UtcNow;
@@ -175,11 +180,15 @@ public sealed class Payment : Aggregate
     /// <summary>
     /// Voids an authorized (but not yet captured) payment.
     /// </summary>
-    /// <returns>Updated result or error.</returns>
     public ErrorOr<Updated> Void()
     {
         if (State == PaymentState.Void) return Result.Updated;
+        
+        // Cannot void captured payments
         if (State == PaymentState.Completed) return Errors.CannotVoidCaptured;
+        
+        if (State != PaymentState.Authorized && State != PaymentState.Pending)
+            return Errors.InvalidStateTransition(from: State, to: PaymentState.Void);
 
         State = PaymentState.Void;
         VoidedAt = DateTimeOffset.UtcNow;
@@ -250,6 +259,14 @@ public sealed class Payment : Aggregate
         ReferenceTransactionId = transactionId;
         State = PaymentState.RequiresAction;
         UpdatedAt = DateTimeOffset.UtcNow;
+
+        if (rawResponse != null)
+        {
+            foreach (var kvp in rawResponse)
+            {
+                this.SetPublic(kvp.Key, kvp.Value);
+            }
+        }
 
         AddDomainEvent(domainEvent: new Events.PaymentRequiresAction(PaymentId: Id, OrderId: OrderId, ReferenceTransactionId: transactionId, RawResponse: rawResponse));
         return this;

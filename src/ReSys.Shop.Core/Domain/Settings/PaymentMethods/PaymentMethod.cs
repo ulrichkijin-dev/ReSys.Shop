@@ -226,25 +226,18 @@ public sealed class PaymentMethod : Aggregate, IHasUniqueName, IHasPosition, IHa
     /// <example>"Pay with Visa or Mastercard", "Secure PayPal Checkout"</example>
     public string Presentation { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Gets or sets an optional detailed description of the payment method.
-    /// 
-    /// <para>
-    /// <strong>Purpose:</strong>
-    /// Provides additional context and information about the payment method for customers.
-    /// Can include details about processing times, fees, security features, or requirements.
-    /// </para>
-    /// 
-    /// <para>
-    /// <strong>Constraints:</strong>
-    /// <list type="bullet">
-    /// <item><description>Optional, can be null</description></item>
-    /// <item><description>If provided, maximum length is determined by system constraints</description></item>
-    /// </list>
-    /// </para>
-    /// </summary>
     /// <example>"Fast and secure credit/debit card payments", "PayPal's secure payment platform"</example>
     public string? Description { get; set; }
+
+    /// <summary>
+    /// Gets or sets the code identifying the gateway processor (e.g., "stripe", "paypal", "cod").
+    /// </summary>
+    public string GatewayCode { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the ID of the gateway configuration (where secrets are stored).
+    /// </summary>
+    public Guid? GatewayConfigurationId { get; set; }
 
     /// <summary>
     /// Gets or sets the type of this payment method from the <see cref="PaymentType"/> enumeration.

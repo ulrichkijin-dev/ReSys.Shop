@@ -14,7 +14,8 @@ public static partial class FeaturePermission
             .. Inventory.All,
             .. Setting.All,
             .. Store.All,
-            .. Promotion.All
+            .. Promotion.All,
+            .. Order.All
         ];
     }
 }
