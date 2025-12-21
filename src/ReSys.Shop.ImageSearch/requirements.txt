@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+pgvector
+torch
+torchvision
+transformers
+pillow
+pandas
+tqdm
+numpy
+python-multipart
+requests
+pytest
+httpx
