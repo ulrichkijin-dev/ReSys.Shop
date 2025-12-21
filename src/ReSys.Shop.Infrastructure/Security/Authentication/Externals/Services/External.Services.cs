@@ -1,6 +1,4 @@
-﻿using ErrorOr;
-
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
 
 using ReSys.Shop.Core.Common.Services.Security.Authentication.Externals.Interfaces;

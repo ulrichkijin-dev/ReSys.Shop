@@ -1,8 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
+﻿using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 using ReSys.Shop.Core.Common.Constants;
-using ReSys.Shop.Core.Common.Shared;
 using ReSys.Shop.Core.Domain.Promotions.Usages;
 
 namespace ReSys.Shop.Infrastructure.Persistence.Configurations.Promotions.Usages;

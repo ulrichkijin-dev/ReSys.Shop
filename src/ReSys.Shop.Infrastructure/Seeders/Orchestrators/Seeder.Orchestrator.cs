@@ -6,7 +6,7 @@ using Serilog;
 
 namespace ReSys.Shop.Infrastructure.Seeders.Orchestrators;
 
-public class SeederOrchestrator(IEnumerable<IDataSeeder> seeders) : IHostedService
+public sealed class SeederOrchestrator(IEnumerable<IDataSeeder> seeders) : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {

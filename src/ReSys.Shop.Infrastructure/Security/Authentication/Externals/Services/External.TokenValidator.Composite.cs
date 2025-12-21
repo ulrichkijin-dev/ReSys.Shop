@@ -1,6 +1,4 @@
-﻿using ErrorOr;
-
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 using ReSys.Shop.Core.Common.Services.Security.Authentication.Externals.Interfaces;

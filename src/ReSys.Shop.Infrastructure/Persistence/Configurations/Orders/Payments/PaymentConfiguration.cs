@@ -1,9 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
+﻿using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 using ReSys.Shop.Core.Common.Constants;
 using ReSys.Shop.Core.Common.Domain.Concerns;
-using ReSys.Shop.Core.Common.Shared;
 using ReSys.Shop.Core.Domain.Orders.Payments;
 
 namespace ReSys.Shop.Infrastructure.Persistence.Configurations.Orders.Payments;
@@ -107,6 +105,7 @@ public sealed class PaymentConfiguration : IEntityTypeConfiguration<Payment>
             .HasComment(comment: "RowVersion: Used for optimistic concurrency control.");
 
         builder.ConfigureAuditable();
+        builder.ConfigureMetadata();
 
         #endregion
 

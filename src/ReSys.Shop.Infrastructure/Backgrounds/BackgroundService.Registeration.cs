@@ -11,6 +11,7 @@ using Microsoft.Extensions.Options;
 using Quartz;
 
 using ReSys.Shop.Core.Common.Constants;
+using ReSys.Shop.Core.Common.Options.Systems;
 using ReSys.Shop.Infrastructure.Backgrounds.Jobs;
 using ReSys.Shop.Infrastructure.Backgrounds.Options;
 using ReSys.Shop.Infrastructure.Persistence.Options;
@@ -76,6 +77,13 @@ public static class BackgroundServiceConfiguration
                     environment: environment);
 
                 RegisterJobs(configurator: configurator);
+            });
+
+            services.AddHttpClient("ImageSearchService", (sp, client) =>
+            {
+                var options = sp.GetRequiredService<IOptions<ImageServiceOption>>().Value;
+                client.BaseAddress = new Uri(options.BaseUrl);
+                client.DefaultRequestHeaders.Add("X-API-Key", options.ApiKey);
             });
 
             Log.Information(
@@ -267,6 +275,12 @@ public static class BackgroundServiceConfiguration
             .WithIdentity(key: LowStockAlertJob.JobKey)
             .WithDescription(description: LowStockAlertJob.Description)
             .StoreDurably());
+
+        // Catalog Jobs
+        configurator.AddJob<Jobs.Catalog.ImageProcessingJob>(configure: opts => opts
+            .WithIdentity(key: Jobs.Catalog.ImageProcessingJob.JobKey)
+            .WithDescription(description: Jobs.Catalog.ImageProcessingJob.Description)
+            .StoreDurably());
     }
 
     /// <summary>
@@ -314,6 +328,13 @@ public static class BackgroundServiceConfiguration
                 triggerKey: LowStockAlertJob.TriggerKey,
                 cronExpression: LowStockAlertJob.CronExpression,
                 jobName: nameof(LowStockAlertJob));
+            jobCount++;
+
+            ScheduleJob(scheduler: scheduler,
+                jobKey: Jobs.Catalog.ImageProcessingJob.JobKey,
+                triggerKey: Jobs.Catalog.ImageProcessingJob.TriggerKey,
+                cronExpression: Jobs.Catalog.ImageProcessingJob.CronExpression,
+                jobName: nameof(Jobs.Catalog.ImageProcessingJob));
             jobCount++;
 
             Log.Information(

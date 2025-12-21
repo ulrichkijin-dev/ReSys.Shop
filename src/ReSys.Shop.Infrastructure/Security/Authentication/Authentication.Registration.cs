@@ -1,4 +1,6 @@
-﻿using System.Diagnostics;
+﻿using ReSys.Shop.Core.Common.Services.Security.Encryptors.Interfaces;
+using ReSys.Shop.Infrastructure.Security.Encryptors;
+using System.Diagnostics;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -34,6 +36,7 @@ public static class AuthenticationConfiguration
             Log.Information(messageTemplate: "Configuring authentication services");
 
             services.AddAuthenticationContext();
+            services.AddSingleton<ICredentialEncryptor, AesCredentialEncryptor>();
 
             services.AddExternalAuthentication(configuration: configuration);
             services.AddTokensAuthentication(configuration: configuration);

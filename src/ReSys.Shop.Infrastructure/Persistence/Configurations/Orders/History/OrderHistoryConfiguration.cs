@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 using ReSys.Shop.Core.Common.Domain.Concerns;
@@ -47,8 +46,7 @@ public sealed class OrderHistoryConfiguration : IEntityTypeConfiguration<OrderHi
             .IsRequired(required: false);
 
         builder.Property(propertyExpression: h => h.Context)
-            .HasColumnType(typeName: "jsonb")
-            .IsRequired(required: false);
+            .ConfigureDictionary(isRequired: false);
 
         builder.ConfigureAuditable();
         #endregion

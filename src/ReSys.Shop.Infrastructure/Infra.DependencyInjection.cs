@@ -89,6 +89,13 @@ public static class DependencyInjection
                 propertyValue0: "Storage",
                 propertyValue1: "Scoped");
 
+            // Payments
+            services.AddScoped<Core.Domain.Orders.Payments.Gateways.IGatewayCredentialProvider, Payments.Gateways.GatewayCredentialProvider>();
+            services.AddScoped<Core.Domain.Orders.Payments.Gateways.IPaymentProcessor, Payments.Gateways.CodProcessor>();
+            services.AddScoped<Core.Domain.Orders.Payments.Gateways.IPaymentProcessor, Payments.Gateways.PayPalProcessor>();
+            services.AddScoped<Core.Domain.Orders.Payments.Gateways.IPaymentProcessor, Payments.Gateways.StripeProcessor>();
+            services.AddScoped<Payments.Gateways.PaymentWebhookProcessor>();
+
             stopwatch.Stop();
             Log.Information(
                 messageTemplate: LogTemplates.ModuleRegistered,

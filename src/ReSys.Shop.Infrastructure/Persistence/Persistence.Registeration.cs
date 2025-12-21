@@ -2,7 +2,6 @@
 
 using Ardalis.GuardClauses;
 
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,7 +9,6 @@ using Microsoft.Extensions.Hosting;
 
 using ReSys.Shop.Core.Common.Constants;
 using ReSys.Shop.Core.Common.Domain.Concerns;
-using ReSys.Shop.Core.Common.Services.Persistence.Interfaces;
 using ReSys.Shop.Core.Domain.Auditing;
 using ReSys.Shop.Core.Domain.Catalog.Products;
 using ReSys.Shop.Core.Domain.Catalog.Products.Images;

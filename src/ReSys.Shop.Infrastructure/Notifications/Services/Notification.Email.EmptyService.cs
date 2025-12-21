@@ -1,6 +1,4 @@
-﻿using ErrorOr;
-
-using ReSys.Shop.Core.Common.Services.Notification.Interfaces;
+﻿using ReSys.Shop.Core.Common.Services.Notification.Interfaces;
 using ReSys.Shop.Core.Common.Services.Notification.Models;
 
 namespace ReSys.Shop.Infrastructure.Notifications.Services;

@@ -1,5 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 
 using ReSys.Shop.Core.Domain.Location.Countries;
 using ReSys.Shop.Core.Domain.Location.States;

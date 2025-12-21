@@ -1,6 +1,4 @@
-﻿using ErrorOr;
-
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 
 using ReSys.Shop.Core.Common.Services.Notification.Constants;
 using ReSys.Shop.Core.Common.Services.Notification.Interfaces;

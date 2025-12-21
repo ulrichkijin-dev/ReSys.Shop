@@ -1,7 +1,5 @@
 ﻿using System.Net.Mail;
 
-using ErrorOr;
-
 using FluentEmail.Core;
 using FluentEmail.Core.Models;
 

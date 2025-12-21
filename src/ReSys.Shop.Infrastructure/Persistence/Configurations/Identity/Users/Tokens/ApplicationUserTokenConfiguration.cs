@@ -1,5 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
+﻿using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 using ReSys.Shop.Core.Common.Constants;
 using ReSys.Shop.Core.Domain.Identity.Users.Tokens;

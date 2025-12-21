@@ -1,12 +1,8 @@
-﻿using ErrorOr;
-
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-using ReSys.Shop.Core.Common.Services.Persistence.Interfaces;
 using ReSys.Shop.Core.Common.Services.Security.Authentication.Tokens.Interfaces;
 using ReSys.Shop.Core.Common.Services.Security.Authentication.Tokens.Models;
 using ReSys.Shop.Core.Domain.Identity.Tokens;
@@ -254,7 +250,7 @@ public sealed class RefreshTokenService(
             DateTimeOffset retentionCutoff = now.AddDays(days: -_options.RevokedTokenRetentionDays);
 
             int deletedCount = await applicationDbContext.Set<RefreshToken>()
-                .Where(predicate: t => t.ExpiresAt < now || (t.IsRevoked && t.RevokedAt < retentionCutoff))
+                .Where(predicate: t => t.ExpiresAt < now || (t.RevokedAt.HasValue && t.RevokedAt < retentionCutoff))
                 .ExecuteDeleteAsync(cancellationToken: cancellationToken);
 
             if (deletedCount > 0)

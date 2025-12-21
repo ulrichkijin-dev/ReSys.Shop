@@ -1,13 +1,10 @@
 ﻿using System.Data;
 
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
 using ReSys.Shop.Core.Common.Constants;
-using ReSys.Shop.Core.Common.Services.Persistence.Interfaces;
-using ReSys.Shop.Core.Common.Shared;
-using ReSys.Shop.Core.Domain.Catalog.OptionTypes;
+using ReSys.Shop.Core.Domain.Catalog.Products.Images;
 using ReSys.Shop.Core.Domain.Identity.Roles;
 using ReSys.Shop.Core.Domain.Identity.Roles.Claims;
 using ReSys.Shop.Core.Domain.Identity.Users;
@@ -30,10 +27,37 @@ public sealed class ApplicationDbContext(
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder: builder);
-        builder.HasPostgresExtension(name: "vector");
+        
+        if (Database.ProviderName != "Microsoft.EntityFrameworkCore.InMemory")
+        {
+            builder.HasPostgresExtension(name: "vector");
+        }
+        
         builder.HasDefaultSchema(schema: Schema.Default);
 
         builder.ApplyConfigurationsFromAssembly(assembly: typeof(OptionTypeConfiguration).Assembly);
+        
+        if (Database.ProviderName == "Microsoft.EntityFrameworkCore.InMemory")
+        {
+            foreach (var entityType in builder.Model.GetEntityTypes().ToList())
+            {
+                foreach (var property in entityType.GetProperties().ToList())
+                {
+                    var columnType = property.GetColumnType();
+                    if (property.ClrType.FullName == "Pgvector.Vector" || (columnType != null && columnType.StartsWith("vector")))
+                    {
+                        builder.Entity(entityType.ClrType).Ignore(property.Name);
+                        continue;
+                    }
+
+                    if (columnType == "jsonb")
+                    {
+                        property.SetColumnType(null);
+                    }
+                }
+            }
+        }
+
         builder.ApplyUtcConversions();
 
     }

@@ -1,7 +1,5 @@
 ﻿using System.Text.RegularExpressions;
 
-using ErrorOr;
-
 using Microsoft.Extensions.Options;
 
 using ReSys.Shop.Core.Common.Services.Notification.Interfaces;
