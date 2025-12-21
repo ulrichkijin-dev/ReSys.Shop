@@ -1,7 +1,5 @@
 ﻿using MapsterMapper;
 
-using MediatR;
-
 using ReSys.Shop.Core.Domain.Catalog.Products;
 using ReSys.Shop.Core.Domain.Catalog.Products.Variants;
 
