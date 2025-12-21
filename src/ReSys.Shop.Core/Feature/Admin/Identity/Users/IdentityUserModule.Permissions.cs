@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Identity;
 
-using ReSys.Shop.Core.Common.Services.Security.Authentication.Contexts;
 using ReSys.Shop.Core.Domain.Identity.Users;
 
 namespace  ReSys.Shop.Core.Feature.Admin.Identity.Users;
