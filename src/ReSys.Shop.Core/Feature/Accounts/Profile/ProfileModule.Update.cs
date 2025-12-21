@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
 
-using ReSys.Shop.Core.Common.Services.Security.Authentication.Contexts;
 using ReSys.Shop.Core.Domain.Identity.Users;
 using ReSys.Shop.Core.Feature.Accounts.Common;
 
@@ -55,7 +54,7 @@ public static partial class ProfileModule
                         User? existingUser = await userManager.FindByNameAsync(userName: param.Username);
                         if (existingUser is not null && existingUser.Id != user.Id)
                         {
-                            //await unitOfWork.RollbackTransactionAsync(cancellationToken: cancellationToken);
+                            //await applicationDbContext.RollbackTransactionAsync(cancellationToken: cancellationToken);
                             return User.Errors.UserNameAlreadyExists(userName: param.Username);
                         }
                     }

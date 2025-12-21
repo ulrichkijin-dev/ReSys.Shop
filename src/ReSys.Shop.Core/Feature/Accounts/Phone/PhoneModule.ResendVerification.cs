@@ -2,7 +2,6 @@
 using Microsoft.Extensions.Configuration;
 
 using ReSys.Shop.Core.Common.Services.Notification.Interfaces;
-using ReSys.Shop.Core.Common.Services.Security.Authentication.Contexts;
 using ReSys.Shop.Core.Domain.Identity.Users;
 using ReSys.Shop.Core.Feature.Accounts.Common;
 

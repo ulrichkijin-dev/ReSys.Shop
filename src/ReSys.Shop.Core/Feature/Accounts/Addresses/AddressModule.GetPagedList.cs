@@ -2,8 +2,6 @@ using Mapster;
 
 using MapsterMapper;
 
-using MediatR;
-
 using ReSys.Shop.Core.Common.Models.Filter;
 using ReSys.Shop.Core.Common.Models.Search;
 using ReSys.Shop.Core.Common.Models.Sort;

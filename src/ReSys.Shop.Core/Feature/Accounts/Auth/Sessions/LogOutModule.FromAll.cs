@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
-using ReSys.Shop.Core.Common.Services.Security.Authentication.Contexts;
 using ReSys.Shop.Core.Common.Services.Security.Authentication.Tokens.Interfaces;
 using ReSys.Shop.Core.Domain.Identity.Users;
 

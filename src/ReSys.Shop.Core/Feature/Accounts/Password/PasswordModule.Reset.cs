@@ -1,6 +1,4 @@
-﻿using MediatR;
-
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 
 using ReSys.Shop.Core.Domain.Identity.Users;
 using ReSys.Shop.Core.Feature.Accounts.Common;

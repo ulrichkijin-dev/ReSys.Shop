@@ -1,7 +1,5 @@
 using MapsterMapper;
 
-using MediatR;
-
 using ReSys.Shop.Core.Domain.Identity.UserAddresses;
 using ReSys.Shop.Core.Domain.Identity.Users;
 
@@ -11,7 +9,7 @@ public static partial class AddressModule
 {
     public static class GetById
     {
-        public sealed record Result : AddressModule.Model.Detail;
+        public sealed record Result : Model.Detail;
         public record Query(Guid Id, string? UserId) : ICommand<Result>;
 
         public class Handler(IApplicationDbContext applicationDbContext, IMapper mapper) : IRequestHandler<Query, ErrorOr<Result>>

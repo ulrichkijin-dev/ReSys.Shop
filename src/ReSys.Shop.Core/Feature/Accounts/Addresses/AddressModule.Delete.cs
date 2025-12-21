@@ -1,5 +1,3 @@
-using MediatR;
-
 using ReSys.Shop.Core.Domain.Identity.UserAddresses;
 using ReSys.Shop.Core.Domain.Identity.Users;
 

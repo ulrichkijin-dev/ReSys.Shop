@@ -1,9 +1,6 @@
 using MapsterMapper;
 
-using MediatR;
-
 using ReSys.Shop.Core.Common.Extensions;
-using ReSys.Shop.Core.Common.Services.Security.Authentication.Contexts;
 using ReSys.Shop.Core.Domain.Identity.UserAddresses;
 using ReSys.Shop.Core.Domain.Identity.Users;
 using ReSys.Shop.Core.Domain.Location.Countries;
@@ -25,7 +22,7 @@ public static partial class AddressModule
             {
                 RuleFor(expression: x => x.UserId).NotEmpty();
                 RuleFor(expression: m => m.Param)
-                    .SetValidator(validator: new AddressModule.Model.ParamValidator());
+                    .SetValidator(validator: new Model.ParamValidator());
             }
         }
 

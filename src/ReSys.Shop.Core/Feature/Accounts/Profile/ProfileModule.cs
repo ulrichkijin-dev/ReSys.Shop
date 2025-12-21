@@ -1,7 +1,5 @@
 ﻿using Carter;
 
-using MediatR;
-
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -9,7 +7,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 
 using ReSys.Shop.Core.Common.Models.Wrappers.Responses;
-using ReSys.Shop.Core.Common.Services.Security.Authentication.Contexts;
 
 namespace ReSys.Shop.Core.Feature.Accounts.Profile;
 
