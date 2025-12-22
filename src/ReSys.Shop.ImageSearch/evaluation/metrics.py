@@ -1,53 +1,25 @@
 import os
 import uuid
-import requests
 from collections import defaultdict
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 import numpy as np
 import pandas as pd
-
-# Add parent directory to path to import app
 import sys
 from pathlib import Path
+
+# Add parent directory to path to import app
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from app.database import (
-    get_db,
-    Product,
-    ProductImage,
-    Taxon,
-    ProductClassification
-)
-
-# --- Configuration ---
-API_BASE_URL = "http://127.0.0.1:8000"
-API_KEY = os.getenv("API_KEY", "thesis-secure-api-key-2025")
-HEADERS = {"X-API-Key": API_KEY}
+from app.config import settings
+from app.database import get_db, Product, ProductImage, ProductClassification, Taxon
+from app.services.search_service import SearchService
+from app.model_factory import model_manager
 
 # Evaluation parameters
 SAMPLE_SIZE = 50
 TOP_K_VALUES = [5, 10, 20]
-MODELS = ["efficientnet_b0", "mobilenet_v3", "clip"]
-
-def get_categorization(db: Session, product_id: uuid.UUID) -> dict:
-    """Gets articleType and subCategory for a product."""
-    res = db.query(Taxon.name, Taxon.parent_id).join(
-        ProductClassification, ProductClassification.taxon_id == Taxon.id
-    ).filter(ProductClassification.product_id == product_id).first()
-    
-    if not res:
-        return {"articleType": "Unknown", "subCategory": "Unknown"}
-    
-    article_type = res[0]
-    sub_cat_id = res[1]
-    sub_cat = "Unknown"
-    
-    if sub_cat_id:
-        sc = db.query(Taxon.name).filter(Taxon.id == sub_cat_id).first()
-        if sc: sub_cat = sc[0]
-        
-    return {"articleType": article_type, "subCategory": sub_cat}
+MODELS = ["efficientnet_b0", "mobilenet_v3", "clip_vit_b16", "dino_vit_s16"]
 
 def calculate_ap(relevance_mask):
     """Calculates Average Precision."""
@@ -72,34 +44,34 @@ def run_evaluation():
         return
 
     all_results = []
+    
+    # Pre-load models
+    model_manager.warmup(MODELS)
 
     for model_name in MODELS:
         print(f"\nEvaluating {model_name}...")
         
-        # Breakdown trackers
         art_stats = defaultdict(lambda: {"p10": [], "r10": [], "ap10": []})
-        sub_stats = defaultdict(lambda: {"p10": [], "r10": [], "ap10": []})
         model_metrics = {k: {"p": [], "r": [], "map": []} for k in TOP_K_VALUES}
 
         for i, q in enumerate(queries):
-            meta = get_categorization(db, q.product_id)
-            gt_art, gt_sub = meta["articleType"], meta["subCategory"]
+            meta = SearchService.get_categorization(db, q.product_id)
+            gt_art = meta["article_type"]
             
+            emb_col = f"embedding_{model_name.split('_')[0]}"
+            vector = getattr(q, emb_col)
+            if vector is None: continue
+
+            # Search using service (internal call)
+            hits = SearchService.search_by_vector(db, vector, model_name, limit=20, exclude_image_id=q.id)
+            rel_mask = [h.article_type == gt_art for h in hits]
+
             # Total relevant in DB for Recall
             total_rel = db.query(func.count(Product.id)).join(ProductClassification).join(Taxon).filter(
                 Taxon.name == gt_art, Product.id != q.product_id
             ).scalar()
             
             if total_rel == 0: continue
-
-            try:
-                resp = requests.get(f"{API_BASE_URL}/search/by-id/{q.id}", 
-                                    headers=HEADERS, params={"model": model_name, "limit": 20})
-                if resp.status_code != 200: continue
-                hits = resp.json().get("results", [])
-            except: continue
-
-            rel_mask = [get_categorization(db, h["product_id"])["articleType"] == gt_art for h in hits]
 
             for k in TOP_K_VALUES:
                 k_mask = rel_mask[:k]
@@ -111,12 +83,10 @@ def run_evaluation():
                 model_metrics[k]["map"].append(ap_k)
                 
                 if k == 10:
-                    for s_dict, key in [(art_stats, gt_art), (sub_stats, gt_sub)]:
-                        s_dict[key]["p10"].append(p_k)
-                        s_dict[key]["r10"].append(r_k)
-                        s_dict[key]["ap10"].append(p_k)
+                    art_stats[gt_art]["p10"].append(p_k)
+                    art_stats[gt_art]["r10"].append(r_k)
+                    art_stats[gt_art]["ap10"].append(ap_k)
 
-        # Global summary for this model
         for k in TOP_K_VALUES:
             all_results.append({
                 "Model": model_name, "K": k,
@@ -125,15 +95,12 @@ def run_evaluation():
                 "mAP": np.mean(model_metrics[k]["map"]) if model_metrics[k]["map"] else 0
             })
 
-        # Print detailed breakdowns
-        for title, stats in [("ArticleType", art_stats), ("SubCategory", sub_stats)]:
-            if stats:
-                print(f"\n--- {title} Breakdown for {model_name} @K=10 ---")
-                df = pd.DataFrame([
-                    {"Name": k, "mP@10": np.mean(v["p10"]), "mR@10": np.mean(v["r10"]), "mAP@10": np.mean(v["ap10"]), "N": len(v["p10"])}
-                    for k, v in stats.items()
-                ]).sort_values("mAP@10", ascending=False).head(10)
-                print(df.to_string(index=False))
+        print(f"\n--- Category Breakdown for {model_name} @K=10 ---")
+        df = pd.DataFrame([
+            {"Name": k, "mP@10": np.mean(v["p10"]), "mR@10": np.mean(v["r10"]), "mAP@10": np.mean(v["ap10"]), "N": len(v["p10"])}
+            for k, v in art_stats.items()
+        ]).sort_values("mAP@10", ascending=False).head(10)
+        print(df.to_string(index=False))
 
     print("\n" + "="*80)
     print("FINAL THESIS COMPARATIVE ANALYSIS")

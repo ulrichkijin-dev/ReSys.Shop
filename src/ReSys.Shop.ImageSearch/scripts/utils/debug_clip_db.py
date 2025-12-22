@@ -5,8 +5,8 @@ import torch
 from sqlalchemy import text
 from dotenv import load_dotenv
 
-# Add parent directory to path to import app
-sys.path.append(str(Path(__file__).resolve().parent.parent))
+# Add project root to path to import app
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 
 load_dotenv()
 

@@ -1,0 +1,7 @@
+Model,K,mP,mR,mAP
+mobilenet_v3,5,0,0,0
+mobilenet_v3,10,0,0,0
+mobilenet_v3,20,0,0,0
+efficientnet_b0,5,0,0,0
+efficientnet_b0,10,0,0,0
+efficientnet_b0,20,0,0,0

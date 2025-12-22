@@ -120,8 +120,12 @@ if __name__ == "__main__":
     
     test_health()
     test_list_models()
-    test_search_by_id(sample_image.id)
-    test_recommendations(sample_product.id)
     
-    # Try searching with an actual image file from the data directory
-    test_search_by_upload(sample_image.url)
+    # Test all 4 champions
+    champions = ["efficientnet_b0", "convnext_tiny", "fashion_clip", "dino_vit_s16"]
+    
+    for model in champions:
+        print(f"\n{'='*50}\nVERIFYING MODEL: {model}\n{'='*50}")
+        test_search_by_id(sample_image.id, model=model)
+        test_recommendations(sample_product.id, model=model)
+        test_search_by_upload(sample_image.url, model=model)

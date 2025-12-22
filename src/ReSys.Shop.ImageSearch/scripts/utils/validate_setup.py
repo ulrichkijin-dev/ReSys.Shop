@@ -13,8 +13,8 @@ import pandas as pd
 from PIL import Image
 from sqlalchemy import text
 
-# Add parent directory to path
-sys.path.append(str(Path(__file__).resolve().parent.parent))
+# Add project root to path
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 
 
 def print_header(text):
@@ -144,42 +144,34 @@ def check_dataset():
 
 
 def check_models():
-    """Check if models can be loaded."""
+    """Check if the 4 Champion SOTA models can be loaded."""
     print_header("Model Loading Check")
     
     try:
         from app.model_factory import get_embedder
+        from app.config import settings
         
-        # Test MobileNetV3
-        print("Testing MobileNetV3...")
-        model = get_embedder('mobilenet_v3')
-        if model:
-            print(f"✓ MobileNetV3 loaded (dim={model.dim})")
-        else:
-            print("✗ MobileNetV3 failed to load")
+        champions = ["efficientnet_b0", "convnext_tiny", "clip_vit_b16", "fashion_clip"]
+        results = {}
+
+        for m_name in champions:
+            print(f"Testing {m_name}...")
+            try:
+                model = get_embedder(m_name)
+                if model:
+                    print(f"✓ {m_name} loaded (dim={model.dim})")
+                    results[m_name] = True
+                else:
+                    print(f"✗ {m_name} failed to load")
+                    results[m_name] = False
+            except Exception as e:
+                print(f"✗ Error loading {m_name}: {e}")
+                results[m_name] = False
         
-        # Test EfficientNet
-        print("\nTesting EfficientNet...")
-        model = get_embedder('efficientnet_b0')
-        if model:
-            print(f"✓ EfficientNet loaded (dim={model.dim})")
-        else:
-            print("✗ EfficientNet failed to load")
-        
-        # Test CLIP
-        print("\nTesting CLIP (may download files)...")
-        model = get_embedder('clip')
-        if model:
-            print(f"✓ CLIP loaded (dim={model.dim})")
-        else:
-            print("✗ CLIP failed to load")
-            print("  This is often due to network issues")
-            print("  The system can still work with CNN models only")
-        
-        return True
+        return all(results.values())
         
     except Exception as e:
-        print(f"✗ Error loading models: {e}")
+        print(f"✗ Critical error in model check: {e}")
         return False
 
 
@@ -190,7 +182,7 @@ def main():
     print("="*70)
     
     # Change to project root
-    os.chdir(Path(__file__).resolve().parent.parent)
+    os.chdir(Path(__file__).resolve().parent.parent.parent)
     
     checks = {
         "Environment": check_environment,
