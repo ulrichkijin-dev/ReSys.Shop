@@ -1,16 +1,33 @@
-fastapi
-uvicorn[standard]
-sqlalchemy
-psycopg2-binary
-pgvector
-torch
-torchvision
-transformers
-pillow
-pandas
-tqdm
-numpy
-python-multipart
-requests
-pytest
-httpx
+# Core FastAPI
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# Database
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+pgvector==0.2.4
+
+# Deep Learning
+torch==2.1.1
+torchvision==0.16.1
+transformers==4.35.2
+
+# Image Processing
+pillow==10.1.0
+
+# Data Processing
+pandas==2.1.3
+numpy==1.26.2
+
+# Progress & Utilities
+tqdm==4.66.1
+python-dotenv==1.0.0
+requests==2.31.0
+
+# Testing
+pytest==7.4.3
+httpx==0.25.2
+
+# Optional: Dataset Download
+kaggle==1.5.16

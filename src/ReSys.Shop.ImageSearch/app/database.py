@@ -15,23 +15,36 @@ Key features of the schema include:
 import os
 import uuid
 from datetime import datetime
+from dotenv import load_dotenv
+import logging
+
+load_dotenv()
+logger = logging.getLogger(__name__)
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import (DECIMAL, Boolean, Column, DateTime, ForeignKey,
-                        Integer, String, Text, create_engine, Index, LargeBinary)
+from sqlalchemy import (
+    DECIMAL, Boolean, Column, DateTime, ForeignKey,
+    Integer, String, Text, create_engine, Index, LargeBinary, text
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 
 # --- Database Connection Setup ---
-# Use environment variable or default to a local connection string.
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/EshopDb")
+DATABASE_URL = os.getenv(
+    "DATABASE_URL", 
+    "postgresql://postgres:12345678@localhost:5432/eshopdb"
+)
 
+logger.info(f"Connecting to database...")
+
+# Create engine with connection pooling
 engine = create_engine(
     DATABASE_URL,
     pool_size=10,
     max_overflow=20,
-    pool_pre_ping=True
+    pool_pre_ping=True,  # Verify connections before using them
+    echo=False  # Set to True for SQL debugging
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -39,10 +52,20 @@ Base = declarative_base()
 
 
 def get_db():
-    """FastAPI dependency to get a DB session for a single request."""
+    """
+    FastAPI dependency to get a DB session for a single request.
+    Ensures pgvector extension is enabled on first connection.
+    """
     db = SessionLocal()
     try:
+        # Ensure the vector extension is enabled (idempotent operation)
+        db.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        db.commit()
         yield db
+    except Exception as e:
+        logger.error(f"Database error: {e}")
+        db.rollback()
+        raise
     finally:
         db.close()
 
@@ -50,8 +73,9 @@ def get_db():
 # --- Schema Mappings (SQLAlchemy ORM Models) ---
 
 class Taxonomy(Base):
-    """Represents a container for a hierarchy of taxons (e.g., "Categories", "Brands")."""
+    """Represents a container for a hierarchy of taxons (e.g., 'Categories', 'Brands')."""
     __tablename__ = "taxonomies"
+    
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False, unique=True)
     presentation = Column(String(255))
@@ -67,6 +91,7 @@ class Taxonomy(Base):
 class Taxon(Base):
     """Represents a single node (category) within a Taxonomy's hierarchy."""
     __tablename__ = "taxa"
+    
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     taxonomy_id = Column(UUID(as_uuid=True), ForeignKey("taxonomies.id"), nullable=False)
     parent_id = Column(UUID(as_uuid=True), ForeignKey("taxa.id"), nullable=True)
@@ -76,16 +101,20 @@ class Taxon(Base):
     permalink = Column(String(750), nullable=False, index=True)
     pretty_name = Column(String(500))
     position = Column(Integer, default=0)
+    
+    # Nested set model fields for hierarchy traversal
     lft = Column(Integer, default=0, index=True)
     rgt = Column(Integer, default=0, index=True)
     depth = Column(Integer, default=0)
     hide_from_nav = Column(Boolean, default=False)
 
+    # Automatic categorization fields
     automatic = Column(Boolean, default=False)
     rules_match_policy = Column(String(50), default="all")  # 'all' or 'any'
     sort_order = Column(String(50), default="manual")
     marked_for_regenerate_taxon_products = Column(Boolean, default=False)
 
+    # SEO fields
     meta_title = Column(String(255))
     meta_description = Column(String(500))
     meta_keywords = Column(String(255))
@@ -105,6 +134,7 @@ class Taxon(Base):
 class TaxonImage(Base):
     """An image associated with a Taxon (e.g., category icon or banner)."""
     __tablename__ = "taxon_images"
+    
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     taxon_id = Column(UUID(as_uuid=True), ForeignKey("taxa.id"), nullable=False)
     url = Column(String(2048), nullable=False)
@@ -122,6 +152,7 @@ class TaxonImage(Base):
 class TaxonRule(Base):
     """A rule for automatically classifying products into an automatic Taxon."""
     __tablename__ = "taxon_rules"
+    
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     taxon_id = Column(UUID(as_uuid=True), ForeignKey("taxa.id"), nullable=False)
     type = Column(String(100), nullable=False)
@@ -137,6 +168,7 @@ class TaxonRule(Base):
 class ProductClassification(Base):
     """A join table linking a Product to a Taxon, representing its category."""
     __tablename__ = "classification"
+    
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
     taxon_id = Column(UUID(as_uuid=True), ForeignKey("taxa.id"), nullable=False)
@@ -154,6 +186,7 @@ class OptionType(Base):
     create distinct product variants.
     """
     __tablename__ = "option_types"
+    
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(100), nullable=False, unique=True)
     presentation = Column(String(100), nullable=False)
@@ -171,6 +204,7 @@ class OptionType(Base):
 class OptionValue(Base):
     """A specific value for an OptionType (e.g., 'Red' for 'Color', 'S' for 'Size')."""
     __tablename__ = "option_values"
+    
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     option_type_id = Column(UUID(as_uuid=True), ForeignKey("option_types.id"), nullable=False)
     name = Column(String(255), nullable=False)
@@ -188,6 +222,7 @@ class OptionValue(Base):
 class ProductOptionType(Base):
     """A join table linking a Product to an OptionType it uses."""
     __tablename__ = "product_option_types"
+    
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
     option_type_id = Column(UUID(as_uuid=True), ForeignKey("option_types.id"), nullable=False)
@@ -202,6 +237,7 @@ class ProductOptionType(Base):
 class VariantOptionValue(Base):
     """A join table linking a ProductVariant to an OptionValue that defines it."""
     __tablename__ = "variant_option_values"
+    
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     variant_id = Column(UUID(as_uuid=True), ForeignKey("variants.id"), nullable=False)
     option_value_id = Column(UUID(as_uuid=True), ForeignKey("option_values.id"), nullable=False)
@@ -215,13 +251,14 @@ class VariantOptionValue(Base):
 class PropertyType(Base):
     """A definable attribute for a product (e.g., 'Material', 'Brand')."""
     __tablename__ = "property_types"
+    
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False, unique=True)
     presentation = Column(String(255))
     filter_param = Column(String(255), index=True)
-    kind = Column(String(50), default='ShortText')  # Represents the C# PropertyKind enum
+    kind = Column(String(50), default='ShortText')
     filterable = Column(Boolean, default=False)
-    display_on = Column(String(50), default='Both')  # Represents the C# DisplayOn enum
+    display_on = Column(String(50), default='Both')
     position = Column(Integer, default=0)
     public_metadata = Column(JSONB)
     private_metadata = Column(JSONB)
@@ -234,6 +271,7 @@ class PropertyType(Base):
 class ProductPropertyType(Base):
     """A join table storing the specific value of a PropertyType for a Product."""
     __tablename__ = "product_property_types"
+    
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
     property_type_id = Column(UUID(as_uuid=True), ForeignKey("property_types.id"), nullable=False)
@@ -329,6 +367,7 @@ class ProductVariant(Base):
 class Price(Base):
     """Pricing information for a ProductVariant in a specific currency."""
     __tablename__ = "prices"
+    
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     variant_id = Column(UUID(as_uuid=True), ForeignKey("variants.id"), nullable=False)
     amount = Column(DECIMAL(18, 2))
@@ -341,7 +380,10 @@ class Price(Base):
 
 
 class ProductImage(Base):
-    """An image associated with a Product or a specific ProductVariant."""
+    """
+    An image associated with a Product or a specific ProductVariant.
+    Supports multiple embedding types for model comparison.
+    """
     __tablename__ = "product_images"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -358,18 +400,20 @@ class ProductImage(Base):
     public_metadata = Column(JSONB)
     private_metadata = Column(JSONB)
 
-    # Thesis Comparison Embeddings
+    # Thesis Comparison Embeddings - MobileNetV3
     embedding_mobilenet = Column(Vector(576))
     embedding_mobilenet_model = Column(String(50))
     embedding_mobilenet_generated_at = Column(DateTime)
     embedding_mobilenet_checksum = Column(String(64))
 
+    # Thesis Comparison Embeddings - EfficientNet
     embedding_efficientnet = Column(Vector(1280))
     embedding_efficientnet_model = Column(String(50))
     embedding_efficientnet_generated_at = Column(DateTime)
     embedding_efficientnet_checksum = Column(String(64))
 
-    embedding_clip = Column(Vector(512))
+    # Thesis Comparison Embeddings - CLIP
+    embedding_clip = Column(Vector(768))
     embedding_clip_model = Column(String(50))
     embedding_clip_generated_at = Column(DateTime)
     embedding_clip_checksum = Column(String(64))
@@ -384,13 +428,14 @@ class ProductImage(Base):
 class Review(Base):
     """A user-submitted review for a Product."""
     __tablename__ = "reviews"
+    
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
     user_id = Column(String(255), nullable=False)
     rating = Column(Integer, nullable=False)
     title = Column(String(100))
     comment = Column(Text)
-    status = Column(Integer, default=0) # 0: Pending, 1: Approved, 2: Rejected
+    status = Column(Integer, default=0)  # 0: Pending, 1: Approved, 2: Rejected
     
     moderated_by = Column(String(255))
     moderated_at = Column(DateTime)

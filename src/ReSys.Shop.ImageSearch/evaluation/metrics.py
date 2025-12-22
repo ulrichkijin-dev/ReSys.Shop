@@ -4,13 +4,15 @@ import requests
 from collections import defaultdict
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+import numpy as np
+import pandas as pd
 
-# Add app directory to path to import database
+# Add parent directory to path to import app
 import sys
 from pathlib import Path
-sys.path.append(str(Path(__file__).parent.parent / "app"))
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from database import (
+from app.database import (
     get_db,
     Product,
     ProductImage,
@@ -19,124 +21,124 @@ from database import (
 )
 
 # --- Configuration ---
-API_BASE_URL = "http://127.0.0.1:8000" # Assuming the FastAPI app is running here
+API_BASE_URL = "http://127.0.0.1:8000"
 API_KEY = os.getenv("API_KEY", "thesis-secure-api-key-2025")
-API_KEY_NAME = "X-API-Key"
-HEADERS = {API_KEY_NAME: API_KEY}
+HEADERS = {"X-API-Key": API_KEY}
 
 # Evaluation parameters
-SAMPLE_SIZE = 20  # Number of query images to evaluate
+SAMPLE_SIZE = 50
 TOP_K_VALUES = [5, 10, 20]
-MODEL = "clip" # Model to evaluate
+MODELS = ["efficientnet_b0", "mobilenet_v3", "clip"]
 
-def get_article_type_for_product(db: Session, product_id: uuid.UUID) -> str | None:
-    """Helper to get the 'articleType' taxon for a given product."""
-    classification = db.query(ProductClassification).filter(ProductClassification.product_id == product_id).first()
-    if not classification:
-        return None
+def get_categorization(db: Session, product_id: uuid.UUID) -> dict:
+    """Gets articleType and subCategory for a product."""
+    res = db.query(Taxon.name, Taxon.parent_id).join(
+        ProductClassification, ProductClassification.taxon_id == Taxon.id
+    ).filter(ProductClassification.product_id == product_id).first()
     
-    # The hierarchy is master -> sub -> article. We assume articleType is the direct classification.
-    # A more robust solution would traverse up the tree if needed.
-    return classification.taxon.name if classification.taxon else None
+    if not res:
+        return {"articleType": "Unknown", "subCategory": "Unknown"}
+    
+    article_type = res[0]
+    sub_cat_id = res[1]
+    sub_cat = "Unknown"
+    
+    if sub_cat_id:
+        sc = db.query(Taxon.name).filter(Taxon.id == sub_cat_id).first()
+        if sc: sub_cat = sc[0]
+        
+    return {"articleType": article_type, "subCategory": sub_cat}
 
-def evaluate_retrieval_metrics():
-    """
-    Evaluates the performance of the image search API by calculating
-    Precision@K and Recall@K for a sample of test images.
-    """
+def calculate_ap(relevance_mask):
+    """Calculates Average Precision."""
+    if not any(relevance_mask): return 0.0
+    precisions = []
+    rel_count = 0
+    for i, rel in enumerate(relevance_mask):
+        if rel:
+            rel_count += 1
+            precisions.append(rel_count / (i + 1))
+    return np.mean(precisions)
+
+def run_evaluation():
     db = next(get_db())
-    try:
-        print("--- Starting Image Retrieval Evaluation ---")
-        print(f"Model: {MODEL} | Sample Size: {SAMPLE_SIZE} | K values: {TOP_K_VALUES}")
+    queries = db.query(ProductImage).join(Product).filter(
+        Product.public_metadata['split'].astext == 'test',
+        ProductImage.type == 'Search'
+    ).order_by(func.random()).limit(SAMPLE_SIZE).all()
 
-        # 1. Get a sample of query images from the 'test' split
-        query_images = db.query(ProductImage).join(Product).filter(
-            Product.public_metadata['split'].astext == 'test',
-            ProductImage.type == 'Search'
-        ).order_by(func.random()).limit(SAMPLE_SIZE).all()
+    if not queries:
+        print("No test data found in DB.")
+        return
 
-        if not query_images:
-            print("Error: No test images found in the database. Please run the dataset loader.")
-            return
+    all_results = []
 
-        # Dictionaries to store metric sums
-        avg_precision = defaultdict(float)
-        avg_recall = defaultdict(float)
+    for model_name in MODELS:
+        print(f"\nEvaluating {model_name}...")
+        
+        # Breakdown trackers
+        art_stats = defaultdict(lambda: {"p10": [], "r10": [], "ap10": []})
+        sub_stats = defaultdict(lambda: {"p10": [], "r10": [], "ap10": []})
+        model_metrics = {k: {"p": [], "r": [], "map": []} for k in TOP_K_VALUES}
 
-        # 2. For each query image, perform search and calculate metrics
-        for i, query_image in enumerate(query_images):
-            print(f"\n[{i+1}/{SAMPLE_SIZE}] Querying with Image ID: {query_image.id} (Product: {query_image.product_id})")
-
-            # Get ground truth for the query image
-            ground_truth_article_type = get_article_type_for_product(db, query_image.product_id)
-            if not ground_truth_article_type:
-                print(f"  - Warning: Could not determine ground truth article type for product {query_image.product_id}. Skipping.")
-                continue
+        for i, q in enumerate(queries):
+            meta = get_categorization(db, q.product_id)
+            gt_art, gt_sub = meta["articleType"], meta["subCategory"]
             
-            print(f"  - Ground Truth Article Type: '{ground_truth_article_type}'")
-
-            # Get total number of relevant items in the DB for recall calculation
-            total_relevant_items = db.query(func.count(Product.id)).join(ProductClassification).join(Taxon).filter(
-                Taxon.name == ground_truth_article_type,
-                Product.id != query_image.product_id # Exclude the query product itself
+            # Total relevant in DB for Recall
+            total_rel = db.query(func.count(Product.id)).join(ProductClassification).join(Taxon).filter(
+                Taxon.name == gt_art, Product.id != q.product_id
             ).scalar()
+            
+            if total_rel == 0: continue
 
-            if total_relevant_items == 0:
-                print("  - Warning: No other relevant items found in the database for this category. Skipping.")
-                continue
-
-            # 3. Call the search API
             try:
-                max_k = max(TOP_K_VALUES)
-                response = requests.get(
-                    f"{API_BASE_URL}/search/by-id/{query_image.id}",
-                    headers=HEADERS,
-                    params={"model": MODEL, "limit": max_k}
-                )
-                response.raise_for_status()
-                results = response.json().get("results", [])
-            except requests.exceptions.RequestException as e:
-                print(f"  - Error: API call failed: {e}")
-                print("  - Is the FastAPI server running? `uvicorn main:app --reload --app-dir src/ReSys.Shop.ImageSearch/app`")
-                return
+                resp = requests.get(f"{API_BASE_URL}/search/by-id/{q.id}", 
+                                    headers=HEADERS, params={"model": model_name, "limit": 20})
+                if resp.status_code != 200: continue
+                hits = resp.json().get("results", [])
+            except: continue
 
-            # 4. Calculate metrics for each K
+            rel_mask = [get_categorization(db, h["product_id"])["articleType"] == gt_art for h in hits]
+
             for k in TOP_K_VALUES:
-                top_k_results = results[:k]
-                if not top_k_results:
-                    continue
+                k_mask = rel_mask[:k]
+                p_k, r_k = sum(k_mask) / k, sum(k_mask) / total_rel
+                ap_k = calculate_ap(k_mask)
                 
-                relevant_found = 0
-                for item in top_k_results:
-                    retrieved_product_id = item["product_id"]
-                    retrieved_article_type = get_article_type_for_product(db, retrieved_product_id)
-                    if retrieved_article_type == ground_truth_article_type:
-                        relevant_found += 1
+                model_metrics[k]["p"].append(p_k)
+                model_metrics[k]["r"].append(r_k)
+                model_metrics[k]["map"].append(ap_k)
                 
-                # Precision@K = (Number of relevant items in top K) / K
-                precision_at_k = relevant_found / k
-                avg_precision[k] += precision_at_k
+                if k == 10:
+                    for s_dict, key in [(art_stats, gt_art), (sub_stats, gt_sub)]:
+                        s_dict[key]["p10"].append(p_k)
+                        s_dict[key]["r10"].append(r_k)
+                        s_dict[key]["ap10"].append(p_k)
 
-                # Recall@K = (Number of relevant items in top K) / (Total number of relevant items)
-                recall_at_k = relevant_found / total_relevant_items
-                avg_recall[k] += recall_at_k
-                
-                print(f"  - @K={k}: Precision={precision_at_k:.2f}, Recall={recall_at_k:.2f} ({relevant_found}/{k} relevant)")
-
-        # 5. Average the metrics and print the final report
-        print("\n--- Final Evaluation Report ---")
-        print(f"Averaged over {len(query_images)} queries for model '{MODEL}':")
+        # Global summary for this model
         for k in TOP_K_VALUES:
-            mean_avg_precision = avg_precision[k] / len(query_images)
-            mean_avg_recall = avg_recall[k] / len(query_images)
-            print(f"  - P@{k}: {mean_avg_precision:.4f}")
-            print(f"  - R@{k}: {mean_avg_recall:.4f}")
+            all_results.append({
+                "Model": model_name, "K": k,
+                "mP": np.mean(model_metrics[k]["p"]) if model_metrics[k]["p"] else 0,
+                "mR": np.mean(model_metrics[k]["r"]) if model_metrics[k]["r"] else 0,
+                "mAP": np.mean(model_metrics[k]["map"]) if model_metrics[k]["map"] else 0
+            })
 
-finally:
-    db.close()
+        # Print detailed breakdowns
+        for title, stats in [("ArticleType", art_stats), ("SubCategory", sub_stats)]:
+            if stats:
+                print(f"\n--- {title} Breakdown for {model_name} @K=10 ---")
+                df = pd.DataFrame([
+                    {"Name": k, "mP@10": np.mean(v["p10"]), "mR@10": np.mean(v["r10"]), "mAP@10": np.mean(v["ap10"]), "N": len(v["p10"])}
+                    for k, v in stats.items()
+                ]).sort_values("mAP@10", ascending=False).head(10)
+                print(df.to_string(index=False))
+
+    print("\n" + "="*80)
+    print("FINAL THESIS COMPARATIVE ANALYSIS")
+    print("="*80)
+    print(pd.DataFrame(all_results).to_string(index=False))
 
 if __name__ == "__main__":
-    print("Running evaluation...")
-    print("Please ensure you have installed the required packages: `pip install requests sqlalchemy psycopg2-binary`")
-    print("And that the API server is running.")
-    evaluate_retrieval_metrics()
+    run_evaluation()
