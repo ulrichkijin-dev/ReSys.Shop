@@ -1,18 +1,15 @@
 using FluentAssertions;
+
 using Microsoft.EntityFrameworkCore;
-using NSubstitute;
-using ReSys.Shop.Core.Common.Domain.Events;
+
 using ReSys.Shop.Core.Domain.Catalog.Products;
 using ReSys.Shop.Core.Domain.Catalog.Products.Variants;
-using ReSys.Shop.Core.Domain.Inventories.FulfillmentStrategies;
-using ReSys.Shop.Core.Domain.Inventories.Locations;
 using ReSys.Shop.Core.Domain.Inventories.Stocks;
 using ReSys.Shop.Core.Domain.Orders;
 using ReSys.Shop.Core.Domain.Orders.Shipments;
 using ReSys.Shop.Core.Feature.Admin.Inventories.StockItems;
 using ReSys.Shop.Core.Feature.Admin.Orders;
 using ReSys.Shop.Infrastructure.Persistence.Contexts;
-using Xunit;
 
 namespace ReSys.Shop.Tests;
 
@@ -64,19 +61,33 @@ public class InventoryTests
         _dbContext.Set<Order>().Add(order);
         await _dbContext.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-        var lineItemId = order.LineItems.First().Id;
-        var shipmentResult = order.AddShipment(locationId, new List<FulfillmentItem> { 
-            FulfillmentItem.Create(lineItemId, variant.Id, 1).Value
-        });
-        shipmentResult.IsError.Should().BeFalse("AddShipment failed: " + (shipmentResult.IsError ? shipmentResult.FirstError.Description : ""));
+        var lineItem = order.LineItems.First();
+        var shipmentResult = Shipment.Create(order.Id, locationId);
+        shipmentResult.IsError.Should().BeFalse();
         var shipment = shipmentResult.Value;
+        
+        var unitResult = InventoryUnit.Create(lineItem.VariantId, lineItem.Id, shipment.Id, InventoryUnit.InventoryUnitState.OnHand);
+        unitResult.IsError.Should().BeFalse();
+        shipment.InventoryUnits.Add(unitResult.Value);
+        lineItem.InventoryUnits.Add(unitResult.Value);
+        
+        order.AddShipment(shipment).IsError.Should().BeFalse();
         await _dbContext.SaveChangesAsync(TestContext.Current.CancellationToken);
         
         var handler = new StockReservations.OnShipmentItemUpdated(_dbContext);
 
         // Act - Add item to shipment
-        var addResult = order.AddItemToShipment(shipment.Id, variant, 2);
-        addResult.IsError.Should().BeFalse("AddItemToShipment failed: " + (addResult.IsError ? addResult.FirstError.Description : ""));
+        var unitResult2 = InventoryUnit.Create(lineItem.VariantId, lineItem.Id, shipment.Id, InventoryUnit.InventoryUnitState.OnHand);
+        unitResult2.IsError.Should().BeFalse();
+        shipment.InventoryUnits.Add(unitResult2.Value);
+        lineItem.InventoryUnits.Add(unitResult2.Value);
+        
+        var unitResult3 = InventoryUnit.Create(lineItem.VariantId, lineItem.Id, shipment.Id, InventoryUnit.InventoryUnitState.OnHand);
+        unitResult3.IsError.Should().BeFalse();
+        shipment.InventoryUnits.Add(unitResult3.Value);
+        lineItem.InventoryUnits.Add(unitResult3.Value);
+        
+        order.AddDomainEvent(new Order.Events.ShipmentItemUpdated(order.Id, shipment.Id, lineItem.VariantId));
         
         await _dbContext.SaveChangesAsync(TestContext.Current.CancellationToken);
 
@@ -111,12 +122,19 @@ public class InventoryTests
         order.State = Order.OrderState.Delivery;
         _dbContext.Set<Order>().Add(order);
 
-        var lineItemId = order.LineItems.First().Id;
-        var shipmentResult = order.AddShipment(sourceLocId, new List<FulfillmentItem> {
-            FulfillmentItem.Create(lineItemId, variant.Id, 3).Value
-        });
+        var lineItem = order.LineItems.First();
+        var shipmentResult = Shipment.Create(order.Id, sourceLocId);
         shipmentResult.IsError.Should().BeFalse();
         var shipment = shipmentResult.Value;
+        
+        for (int i = 0; i < 3; i++)
+        {
+            var unitResult = InventoryUnit.Create(lineItem.VariantId, lineItem.Id, shipment.Id, InventoryUnit.InventoryUnitState.OnHand);
+            unitResult.IsError.Should().BeFalse();
+            shipment.InventoryUnits.Add(unitResult.Value);
+            lineItem.InventoryUnits.Add(unitResult.Value);
+        }
+        order.AddShipment(shipment).IsError.Should().BeFalse();
         
         await _dbContext.SaveChangesAsync(TestContext.Current.CancellationToken);
 
@@ -139,7 +157,7 @@ public class InventoryTests
         var targetShipment = await _dbContext.Set<Shipment>().Include(s => s.InventoryUnits).FirstAsync(s => s.StockLocationId == targetLocId, TestContext.Current.CancellationToken);
         targetShipment.InventoryUnits.Count.Should().Be(2);
 
-        var totalUnits = await _dbContext.Set<InventoryUnit>().CountAsync(u => u.LineItemId == lineItemId, TestContext.Current.CancellationToken);
+        var totalUnits = await _dbContext.Set<InventoryUnit>().CountAsync(u => u.LineItemId == lineItem.Id, TestContext.Current.CancellationToken);
         totalUnits.Should().Be(3);
     }
     
@@ -163,12 +181,19 @@ public class InventoryTests
         order.State = Order.OrderState.Delivery;
         _dbContext.Set<Order>().Add(order);
         
-        var lineItemId = order.LineItems.First().Id;
-        var shipmentResult = order.AddShipment(locationId, new List<FulfillmentItem> {
-             FulfillmentItem.Create(lineItemId, variant.Id, 5).Value
-        });
+        var lineItem = order.LineItems.First();
+        var shipmentResult = Shipment.Create(order.Id, locationId);
         shipmentResult.IsError.Should().BeFalse();
         var shipment = shipmentResult.Value;
+        
+        for (int i = 0; i < 5; i++)
+        {
+            var unitResult = InventoryUnit.Create(lineItem.VariantId, lineItem.Id, shipment.Id, InventoryUnit.InventoryUnitState.OnHand);
+            unitResult.IsError.Should().BeFalse();
+            shipment.InventoryUnits.Add(unitResult.Value);
+            lineItem.InventoryUnits.Add(unitResult.Value);
+        }
+        order.AddShipment(shipment).IsError.Should().BeFalse();
         
         stockItem.Reserve(5, order.Id).IsError.Should().BeFalse();
         await _dbContext.SaveChangesAsync(TestContext.Current.CancellationToken);
