@@ -1,0 +1,83 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fashion-image-search"
+version = "0.1.0"
+description = "CNN vs Transformer Architectures for Fashion Image Retrieval"
+readme = "README.md"
+requires-python = ">=3.10"
+
+dependencies = [
+    # Core Web Framework
+    "fastapi==0.109.0",
+    "uvicorn[standard]==0.27.0",
+    "python-multipart==0.0.6",
+
+    # Database & Vector Storage
+    "sqlalchemy==2.0.25",
+    "psycopg2-binary==2.9.9",
+    "pgvector==0.2.4",
+    "alembic==1.13.1",
+
+    # Deep Learning & Computer Vision
+    "torch==2.1.2",
+    "torchvision==0.16.2",
+    "transformers==4.36.2",
+    "timm==0.9.12",
+
+    # CLIP (Git dependency)
+    "clip @ git+https://github.com/openai/CLIP.git",
+
+    # Image Processing
+    "pillow==10.2.0",
+    "opencv-python==4.9.0.80",
+
+    # Data Processing
+    "pandas==2.1.4",
+    "numpy==1.26.3",
+    "scipy==1.11.4",
+
+    # Utilities
+    "tqdm==4.66.1",
+    "python-dotenv==1.0.0",
+    "pydantic==2.5.3",
+    "pydantic-settings==2.1.0",
+
+    # HTTP
+    "requests==2.31.0",
+    "httpx==0.26.0",
+    "aiofiles==23.2.1",
+
+    # Visualization & ML
+    "matplotlib==3.8.2",
+    "seaborn==0.13.1",
+    "plotly==5.18.0",
+    "scikit-learn==1.4.0",
+
+    # Monitoring
+    "psutil==5.9.7",
+    "colorlog==6.8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==7.4.4",
+    "pytest-asyncio==0.23.3",
+    "pytest-cov==4.1.0",
+    "black==23.12.1",
+    "flake8==7.0.0",
+    "mypy==1.8.0",
+]
+
+datasets = [
+    "kaggle==1.5.16",
+    "huggingface-hub==0.20.2",
+]
+
+prod = [
+    "gunicorn==21.2.0",
+    "redis==5.0.1",
+    "celery==5.3.4",
+]
