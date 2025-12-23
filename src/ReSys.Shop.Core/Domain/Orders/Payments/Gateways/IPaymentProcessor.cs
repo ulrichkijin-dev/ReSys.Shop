@@ -6,6 +6,7 @@ namespace ReSys.Shop.Core.Domain.Orders.Payments.Gateways;
 public enum AuthorizationStatus
 {
     Authorized,
+    Captured,
     RequiresAction,
     Failed,
     Pending

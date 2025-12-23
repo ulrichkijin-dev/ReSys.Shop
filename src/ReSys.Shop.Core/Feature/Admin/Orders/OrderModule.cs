@@ -155,6 +155,28 @@ public static partial class OrderModule
                 .UseEndpointMeta(meta: Annotations.ApplyCoupon)
                 .RequireAccessPermission(permission: FeaturePermission.Admin.Order.Update);
 
+            group.MapDelete(pattern: "{id:guid}/apply_coupon", handler: async (
+                    [FromRoute] Guid id,
+                    [FromServices] ISender mediator,
+                    CancellationToken ct) =>
+                {
+                    var result = await mediator.Send(request: new Actions.RemoveCoupon.Command(Id: id), cancellationToken: ct);
+                    return TypedResults.Ok(value: result.ToApiResponse(message: "Coupon removed successfully"));
+                })
+                .UseEndpointMeta(meta: Annotations.RemoveCoupon)
+                .RequireAccessPermission(permission: FeaturePermission.Admin.Order.Update);
+
+            group.MapGet(pattern: "{id:guid}/coupons", handler: async (
+                    [FromRoute] Guid id,
+                    [FromServices] ISender mediator,
+                    CancellationToken ct) =>
+                {
+                    var result = await mediator.Send(request: new Actions.GetCoupons.Query(Id: id), cancellationToken: ct);
+                    return TypedResults.Ok(value: result.ToApiResponse(message: "Applied coupons retrieved successfully"));
+                })
+                .UseEndpointMeta(meta: Annotations.GetCoupons)
+                .RequireAccessPermission(permission: FeaturePermission.Admin.Order.View);
+
 
             // --- Shipment Management ---
             group.MapGet(pattern: "{id:guid}/shipments", handler: async (

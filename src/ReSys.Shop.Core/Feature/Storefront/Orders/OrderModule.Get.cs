@@ -1,5 +1,8 @@
 using Mapster;
 using MapsterMapper;
+using ReSys.Shop.Core.Common.Models.Filter;
+using ReSys.Shop.Core.Common.Models.Search;
+using ReSys.Shop.Core.Common.Models.Sort;
 using ReSys.Shop.Core.Common.Models.Wrappers.PagedLists;
 using ReSys.Shop.Core.Common.Models.Wrappers.Queryable;
 using ReSys.Shop.Core.Domain.Orders;
@@ -22,8 +25,16 @@ public static partial class OrderModule
                     var userId = userContext.UserId;
                     var query = dbContext.Set<Order>()
                         .Where(o => o.UserId == userId && o.State != Order.OrderState.Cart)
-                        .OrderByDescending(o => o.CreatedAt)
                         .AsNoTracking();
+
+                    query = query.ApplySearch(request.Params)
+                                 .ApplyFilters(request.Params)
+                                 .ApplySort(request.Params);
+
+                    if (string.IsNullOrWhiteSpace(request.Params.SortBy))
+                    {
+                        query = ((IQueryable<Order>)query).OrderByDescending(o => o.CreatedAt);
+                    }
 
                     return await query
                         .ProjectToType<Models.OrderItem>(mapper.Config)
@@ -67,7 +78,7 @@ public static partial class OrderModule
                         .Include(o => o.LineItems)
                         .Include(o => o.Shipments)
                         .Include(o => o.Payments)
-                        .Where(o => o.GuestToken == request.Token)
+                        .Where(o => o.AdhocCustomerId == request.Token)
                         .AsNoTracking()
                         .FirstOrDefaultAsync(ct);
 

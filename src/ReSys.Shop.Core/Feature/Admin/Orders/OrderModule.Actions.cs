@@ -213,6 +213,7 @@ public static partial class OrderModule
                 {
                     var order = await dbContext.Set<Order>()
                         .Include(o => o.LineItems)
+                            .ThenInclude(li => li.Adjustments)
                         .Include(o => o.OrderAdjustments)
                         .FirstOrDefaultAsync(o => o.Id == command.Id, ct);
 
@@ -225,11 +226,89 @@ public static partial class OrderModule
 
                     if (promotion == null) return Promotion.Errors.InvalidCode;
 
+                    // Refactored: Orchestrate Promotion Application via Aggregate
                     var result = order.ApplyPromotion(promotion, command.Request.CouponCode);
+                    if (result.IsError) return result.Errors;
+
+                    var calcResult = ReSys.Shop.Core.Domain.Promotions.Calculations.PromotionCalculator.Calculate(promotion, order);
+                    if (calcResult.IsError) return calcResult.FirstError;
+
+                    var applyResult = order.ApplyPromotionAdjustments(promotion.Id, calcResult.Value);
+                    if (applyResult.IsError) return applyResult.Errors;
+
+                    await dbContext.SaveChangesAsync(ct);
+                    return Result.Success;
+                }
+            }
+        }
+
+        public static class RemoveCoupon
+        {
+            public sealed record Command(Guid Id) : ICommand<Success>;
+
+            public sealed class CommandValidator : AbstractValidator<Command>
+            {
+                public CommandValidator() { RuleFor(x => x.Id).NotEmpty(); }
+            }
+
+            public sealed class CommandHandler(IApplicationDbContext dbContext) : ICommandHandler<Command, Success>
+            {
+                public async Task<ErrorOr<Success>> Handle(Command command, CancellationToken ct)
+                {
+                    var order = await dbContext.Set<Order>()
+                        .Include(o => o.OrderAdjustments)
+                        .Include(o => o.LineItems)
+                            .ThenInclude(li => li.Adjustments)
+                        .FirstOrDefaultAsync(o => o.Id == command.Id, ct);
+
+                    if (order == null) return Order.Errors.NotFound(command.Id);
+
+                    var result = order.RemovePromotion();
                     if (result.IsError) return result.Errors;
 
                     await dbContext.SaveChangesAsync(ct);
                     return Result.Success;
+                }
+            }
+        }
+
+        public static class GetCoupons
+        {
+            public record Result(string Code, string Description, decimal Amount);
+            public sealed record Query(Guid Id) : IQuery<List<Result>>;
+
+            public sealed class QueryHandler(IApplicationDbContext dbContext) : IQueryHandler<Query, List<Result>>
+            {
+                public async Task<ErrorOr<List<Result>>> Handle(Query request, CancellationToken ct)
+                {
+                    var order = await dbContext.Set<Order>()
+                        .Include(o => o.Promotion)
+                        .Include(o => o.OrderAdjustments)
+                        .Include(o => o.LineItems)
+                            .ThenInclude(li => li.Adjustments)
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(o => o.Id == request.Id, ct);
+
+                    if (order == null) return Order.Errors.NotFound(request.Id);
+
+                    var results = new List<Result>();
+                    if (order.PromotionId.HasValue && !string.IsNullOrEmpty(order.PromoCode))
+                    {
+                        var totalDiscount = order.OrderAdjustments
+                            .Where(a => a.IsPromotion && a.Eligible)
+                            .Sum(a => a.AmountCents) +
+                            order.LineItems.SelectMany(li => li.Adjustments)
+                            .Where(a => a.IsPromotion && a.Eligible)
+                            .Sum(a => (decimal)a.AmountCents);
+
+                        results.Add(new Result(
+                            Code: order.PromoCode,
+                            Description: order.Promotion?.Description ?? order.Promotion?.Name ?? "Applied Promotion",
+                            Amount: Math.Abs(totalDiscount / 100m)
+                        ));
+                    }
+
+                    return results;
                 }
             }
         }

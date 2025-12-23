@@ -58,12 +58,25 @@ public static partial class OrderModule
                     if (paymentMethod == null)
                         return PaymentMethod.Errors.NotFound(command.Request.PaymentMethodId);
 
+                    if (!paymentMethod.Active)
+                        return Error.Validation(code: "PaymentMethod.Inactive", description: "This payment method is not active.");
+
+                    if (paymentMethod.MethodCode != command.Request.PaymentMethodType.ToLowerInvariant())
+                        return Error.Validation(code: "PaymentMethod.TypeMismatch", description: "Payment method type mismatch.");
+
                     var amountCents = (long)(command.Request.Amount * 100);
-                    var paymentResult = order.AddPayment(amountCents, command.Request.PaymentMethodId,
-                        command.Request.PaymentMethodType);
+                    
+                    var paymentResult = OrderPayments.Payment.Create(
+                        orderId: order.Id, 
+                        amountCents: amountCents, 
+                        currency: order.Currency,
+                        paymentMethodType: command.Request.PaymentMethodType, 
+                        paymentMethodId: command.Request.PaymentMethodId);
 
                     if (paymentResult.IsError) return paymentResult.Errors;
                     var payment = paymentResult.Value;
+                    order.AddPayment(payment);
+
                     payment.PaymentMethod = paymentMethod;
 
                     // Execute external intent
@@ -78,11 +91,21 @@ public static partial class OrderModule
                         if (!intentResult.IsError)
                         {
                             var intent = intentResult.Value;
-                            if (intent.Status == AuthorizationStatus.RequiresAction)
-                                payment.MarkAsRequiresAction(intent.ProviderReferenceId, intent.NextActionData);
-                            else
-                                payment.MarkAsAuthorized(intent.ProviderReferenceId, intent.AuthCode);
-                        }
+                                                    if (intent.Status == AuthorizationStatus.RequiresAction)
+                                                    {
+                                                        var actionResult = payment.MarkAsRequiresAction(intent.ProviderReferenceId, intent.NextActionData);
+                                                        if (actionResult.IsError) return actionResult.Errors;
+                                                    }
+                                                    else if (intent.Status == AuthorizationStatus.Captured)
+                                                    {
+                                                        var captureResult = payment.MarkAsCaptured(intent.ProviderReferenceId);
+                                                        if (captureResult.IsError) return captureResult.Errors;
+                                                    }
+                                                    else
+                                                    {
+                                                        var authResult = payment.MarkAsAuthorized(intent.ProviderReferenceId, intent.AuthCode);
+                                                        if (authResult.IsError) return authResult.Errors;
+                                                    }                        }
                     }
 
                     await dbContext.SaveChangesAsync(ct);
@@ -119,7 +142,8 @@ public static partial class OrderModule
                     var result = await gateway.Value.CreateIntentAsync(payment, money, idempotencyKey, ct);
                     if (result.IsError) return result.Errors;
 
-                    payment.MarkAsAuthorized(result.Value.ProviderReferenceId, result.Value.AuthCode);
+                    var authResult = payment.MarkAsAuthorized(result.Value.ProviderReferenceId, result.Value.AuthCode);
+                    if (authResult.IsError) return authResult.Errors;
 
                     await dbContext.SaveChangesAsync(ct);
                     return Result.Success;
@@ -152,7 +176,8 @@ public static partial class OrderModule
                     var result = await gateway.Value.CaptureAsync(payment, idempotencyKey, ct);
                     if (result.IsError) return result.Errors;
 
-                    payment.MarkAsCaptured(command.Request.TransactionId ?? payment.ReferenceTransactionId);
+                    var captureResult = payment.MarkAsCaptured(command.Request.TransactionId ?? payment.ReferenceTransactionId);
+                    if (captureResult.IsError) return captureResult.Errors;
 
                     await dbContext.SaveChangesAsync(ct);
                     return Result.Success;
@@ -187,8 +212,10 @@ public static partial class OrderModule
                         await gateway.Value.RefundAsync(payment, money, command.Request.Reason, idempotencyKey, ct);
                     if (result.IsError) return result.Errors;
 
-                    payment.Refund(command.Request.Amount * 100, command.Request.Reason,
-                        result.Value.ToString()); // Success returned as provider ref in refund
+                    var refundResult = payment.Refund((long)(command.Request.Amount * 100), command.Request.Reason,
+                        command.Request.TransactionId ?? payment.ReferenceTransactionId);
+
+                    if (refundResult.IsError) return refundResult.Errors;
 
                     await dbContext.SaveChangesAsync(ct);
                     return Result.Success;
@@ -219,7 +246,8 @@ public static partial class OrderModule
                     var result = await gateway.Value.VoidAsync(payment, idempotencyKey, ct);
                     if (result.IsError) return result.Errors;
 
-                    payment.Void();
+                    var voidResult = payment.Void();
+                    if (voidResult.IsError) return voidResult.Errors;
 
                     await dbContext.SaveChangesAsync(ct);
                     return Result.Success;

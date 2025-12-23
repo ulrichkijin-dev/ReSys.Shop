@@ -47,7 +47,9 @@ public static partial class SettingModule
                     value: param.Value,
                     description: param.Description,
                     defaultValue: param.DefaultValue,
-                    valueType: param.ValueType);
+                    valueType: param.ValueType,
+                    publicMetadata: param.PublicMetadata,
+                    privateMetadata: param.PrivateMetadata);
 
                 if (createResult.IsError) return createResult.Errors;
                 var setting = createResult.Value;

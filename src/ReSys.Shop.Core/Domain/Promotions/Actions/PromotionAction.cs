@@ -376,7 +376,7 @@ public sealed class PromotionAction : AuditableEntity<Guid>, IHasMetadata
     {
         var adjustments = new List<PromotionAdjustment>();
 
-        if (context.Order.IsFullyDigital || context.Order.ShipmentTotal <= 0)
+        if (context.Order.ShipmentTotal <= 0)
             return adjustments;
 
         decimal discountAmount = context.Order.ShipmentTotal;

@@ -1,6 +1,7 @@
 using MapsterMapper;
 
 using ReSys.Shop.Core.Domain.Catalog.Products.Variants;
+using ReSys.Shop.Core.Domain.Orders.LineItems;
 
 namespace ReSys.Shop.Core.Feature.Storefront.Cart;
 
@@ -28,8 +29,31 @@ public static partial class CartModule
 
                     if (variant == null) return Error.NotFound("Variant.NotFound", "Variant not found.");
 
-                    var result = cart.AddLineItem(variant, command.Request.Quantity);
-                    if (result.IsError) return result.Errors;
+                    // Refactored: "Transaction Script" style - Create sub-models in Handler
+                    var existingLineItem = cart.LineItems.FirstOrDefault(li => li.VariantId == variant.Id);
+                    if (existingLineItem != null)
+                    {
+                        var updateResult = existingLineItem.UpdateQuantity(existingLineItem.Quantity + command.Request.Quantity);
+                        if (updateResult.IsError) return updateResult.Errors;
+                    }
+                    else
+                    {
+                        // Handler orchestrates creation of the dependent entity
+                        var lineItemResult = LineItem.Create(
+                            orderId: cart.Id,
+                            variant: variant,
+                            quantity: command.Request.Quantity,
+                            currency: cart.Currency);
+
+                        if (lineItemResult.IsError) return lineItemResult.Errors;
+                        
+                        // Handler adds it to the Aggregate
+                        cart.LineItems.Add(lineItemResult.Value);
+                    }
+
+                    // Handler ensures consistency
+                    var recalcResult = cart.RecalculateTotals();
+                    if (recalcResult.IsError) return recalcResult.Errors;
 
                     await dbContext.SaveChangesAsync(ct);
                     return mapper.Map<Models.CartDetail>(cart);

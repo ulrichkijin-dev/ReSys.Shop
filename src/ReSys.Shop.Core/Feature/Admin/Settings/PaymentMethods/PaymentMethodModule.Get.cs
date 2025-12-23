@@ -18,7 +18,10 @@ public static partial class PaymentMethodModule
     {
         public static class PagedList
         {
-            public sealed class Request : QueryableParams;
+            public sealed class Request : QueryableParams
+            {
+                public bool IncludeDeleted { get; init; }
+            }
             public sealed record Result : Models.ListItem;
             public sealed record Query(Request Request) : IQuery<PaginationList<Result>>;
 
@@ -27,8 +30,14 @@ public static partial class PaymentMethodModule
             {
                 public async Task<ErrorOr<PaginationList<Result>>> Handle(Query command, CancellationToken ct)
                 {
-                    var pagedResult = await dbContext.Set<PaymentMethod>()
-                        .AsNoTracking()
+                    var query = dbContext.Set<PaymentMethod>().AsNoTracking();
+
+                    if (command.Request.IncludeDeleted)
+                    {
+                        query = query.IgnoreQueryFilters();
+                    }
+
+                    var pagedResult = await query
                         .ApplySearch(searchParams: command.Request)
                         .ApplyFilters(filterParams: command.Request)
                         .ApplySort(sortParams: command.Request)

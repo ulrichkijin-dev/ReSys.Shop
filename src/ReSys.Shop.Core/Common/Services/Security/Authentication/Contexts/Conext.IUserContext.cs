@@ -8,6 +8,5 @@ public interface IUserContext
     string? UserName { get; }
     bool IsAuthenticated { get; }
     void SetAdhocCustomerId(string adhocCustomerId); 
-    void SetStoreId(Guid storeId); 
     
 }

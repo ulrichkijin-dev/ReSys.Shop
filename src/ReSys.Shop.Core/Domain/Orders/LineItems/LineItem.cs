@@ -196,9 +196,9 @@ public class LineItem : AuditableEntity<Guid>
     
     /// <summary>
     /// Total cost of the line item before any order-level adjustments.
-    /// In the new model, this is the same as the subtotal.
+    /// Includes the subtotal plus any item-specific adjustments (discounts/fees).
     /// </summary>
-    public long TotalCents => SubtotalCents;
+    public long TotalCents => SubtotalCents + Adjustments.Where(a => a.Eligible).Sum(a => a.AmountCents);
     
     /// <summary>
     /// Total cost converted to decimal currency value (TotalCents ÷ 100).

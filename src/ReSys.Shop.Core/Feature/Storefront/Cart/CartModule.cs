@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+
 using ReSys.Shop.Core.Common.Models.Wrappers.Responses;
 
 namespace ReSys.Shop.Core.Feature.Storefront.Cart;
@@ -101,6 +102,17 @@ public static partial class CartModule
                 })
                 .UseEndpointMeta(meta: Annotations.ApplyCoupon);
 
+            group.MapPatch(pattern: "remove_coupon", handler: async (
+                    [FromHeader(Name = "X-Cart-Token")] string? token,
+                    [FromBody] Actions.RemoveCoupon.Request request,
+                    [FromServices] ISender mediator,
+                    CancellationToken ct) =>
+                {
+                    var result = await mediator.Send(request: new Actions.RemoveCoupon.Command(Token: token, Request: request), cancellationToken: ct);
+                    return TypedResults.Ok(value: result.ToApiResponse(message: "Coupon removed"));
+                })
+                .UseEndpointMeta(meta: Annotations.RemoveCoupon);
+
             group.MapPatch(pattern: "associate", handler: async (
                     [FromHeader(Name = "X-Cart-Token")] string? token,
                     [FromServices] ISender mediator,
@@ -110,6 +122,8 @@ public static partial class CartModule
                     return TypedResults.Ok(value: result.ToApiResponse(message: "Cart associated with user"));
                 })
                 .UseEndpointMeta(meta: Annotations.Associate);
+
+
 
             // --- Checkout ---
             var checkout = app.MapGroup(prefix: "api/storefront/checkout")
@@ -185,8 +199,37 @@ public static partial class CartModule
                     var result = await mediator.Send(request: new Checkout.ListPaymentMethods.Query(Token: token), cancellationToken: ct);
                     return TypedResults.Ok(value: result.ToApiResponse(message: "Payment methods retrieved"));
                 })
-                .UseEndpointMeta(meta: Annotations.Checkout.CreatePayment); // Reusing for now
+                .UseEndpointMeta(meta: Annotations.Checkout.ListPaymentMethods);
 
+            checkout.MapGet(pattern: "shipping_methods", handler: async (
+                    [FromHeader(Name = "X-Cart-Token")] string? token,
+                    [FromServices] ISender mediator,
+                    CancellationToken ct) =>
+                {
+                    var result = await mediator.Send(request: new Checkout.ListShippingMethods.Query(Token: token), cancellationToken: ct);
+                    return TypedResults.Ok(value: result.ToApiResponse(message: "Shipping methods retrieved"));
+                })
+                .UseEndpointMeta(meta: Annotations.Checkout.SelectShippingMethod); // Reusing or adding new meta
+
+            checkout.MapPatch(pattern: "address", handler: async (
+                    [FromHeader(Name = "X-Cart-Token")] string? token,
+                    [FromBody] Checkout.UpdateAddress.Request request,
+                    [FromServices] ISender mediator,
+                    CancellationToken ct) =>
+                {
+                    var result = await mediator.Send(request: new Checkout.UpdateAddress.Command(Token: token, Request: request), cancellationToken: ct);
+                    return TypedResults.Ok(value: result.ToApiResponse(message: "Address updated"));
+                });
+            group.MapPatch(pattern: "set_shipping_address", handler: async (
+                    [FromHeader(Name = "X-Cart-Token")] string? token,
+                    [FromBody] Addresses.AddressRequest request,
+                    [FromServices] ISender mediator,
+                    CancellationToken ct) =>
+                {
+                    var result = await mediator.Send(request: new Addresses.SetShippingAddress.Command(Token: token, Request: request), cancellationToken: ct);
+                    return TypedResults.Ok(value: result.ToApiResponse(message: "Shipping address updated"));
+                })
+                .UseEndpointMeta(meta: Annotations.SetShippingAddress);
             checkout.MapPost(pattern: "payments", handler: async (
                     [FromHeader(Name = "X-Cart-Token")] string? token,
                     [FromBody] Checkout.AddPayment.Request request,

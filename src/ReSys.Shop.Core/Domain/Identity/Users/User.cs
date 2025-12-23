@@ -10,7 +10,6 @@ using ReSys.Shop.Core.Domain.Identity.Users.Logins;
 using ReSys.Shop.Core.Domain.Identity.Users.Roles;
 using ReSys.Shop.Core.Domain.Identity.Users.Tokens;
 using ReSys.Shop.Core.Domain.Orders;
-using ReSys.Shop.Core.Domain.Settings.PaymentMethods.PaymentSources;
 
 namespace ReSys.Shop.Core.Domain.Identity.Users;
 
@@ -68,7 +67,7 @@ namespace ReSys.Shop.Core.Domain.Identity.Users;
 /// </list>
 /// </para>
 /// </remarks>
-public class User : IdentityUser, IHasVersion, IHasDomainEvents, IHasAuditable
+public class User : IdentityUser, IHasVersion, IHasDomainEvents, IHasAuditable, IHasMetadata
 {
     #region Constraints
 
@@ -182,6 +181,9 @@ public class User : IdentityUser, IHasVersion, IHasDomainEvents, IHasAuditable
     /// </summary>
     public string? ProfileImagePath { get; set; }
 
+    public IDictionary<string, object?>? PublicMetadata { get; set; } = new Dictionary<string, object?>();
+    public IDictionary<string, object?>? PrivateMetadata { get; set; } = new Dictionary<string, object?>();
+
     /// <summary>
     /// Gets or sets the UTC timestamp of the user's last recorded sign-in.
     /// </summary>
@@ -266,11 +268,6 @@ public class User : IdentityUser, IHasVersion, IHasDomainEvents, IHasAuditable
     /// Gets or sets the collection of <see cref="Review"/>s written by this user.
     /// </summary>
     public ICollection<Review> Reviews { get; set; } = new List<Review>();
-    /// <summary>
-    /// Gets or sets the collection of <see cref="PaymentSource"/>s associated with this user.
-    /// </summary>
-    public ICollection<PaymentSource> PaymentSources { get; set; } = new List<PaymentSource>();
-
     #endregion
 
     #region Computed Properties
@@ -332,7 +329,9 @@ public class User : IdentityUser, IHasVersion, IHasDomainEvents, IHasAuditable
        string? phoneNumber = null,
        string? profileImagePath = null,
        bool emailConfirmed = false,
-       bool phoneNumberConfirmed = false)
+       bool phoneNumberConfirmed = false,
+       IDictionary<string, object?>? publicMetadata = null,
+       IDictionary<string, object?>? privateMetadata = null)
     {
         string trimmedEmail = email?.Trim() ?? string.Empty;
 
@@ -355,6 +354,8 @@ public class User : IdentityUser, IHasVersion, IHasDomainEvents, IHasAuditable
             PhoneNumber = phoneNumber?.Trim(),
             PhoneNumberConfirmed = phoneNumberConfirmed,
             ProfileImagePath = profileImagePath?.Trim(),
+            PublicMetadata = publicMetadata ?? new Dictionary<string, object?>(),
+            PrivateMetadata = privateMetadata ?? new Dictionary<string, object?>(),
             CreatedAt = DateTimeOffset.UtcNow
         };
 
@@ -399,7 +400,10 @@ public class User : IdentityUser, IHasVersion, IHasDomainEvents, IHasAuditable
        DateTimeOffset? dateOfBirth = null,
        string? profileImagePath = null,
        string? phoneNumber = null,
-       bool emailConfirmed = false, bool phoneNumberConfirmed = false)
+       bool emailConfirmed = false, 
+       bool phoneNumberConfirmed = false,
+       IDictionary<string, object?>? publicMetadata = null,
+       IDictionary<string, object?>? privateMetadata = null)
     {
         bool changed = false;
 
@@ -452,6 +456,18 @@ public class User : IdentityUser, IHasVersion, IHasDomainEvents, IHasAuditable
             string trimmedPhoneNumber = phoneNumber.Trim();
             PhoneNumber = trimmedPhoneNumber;
             PhoneNumberConfirmed = false;
+            changed = true;
+        }
+
+        if (publicMetadata != null && !PublicMetadata.MetadataEquals(dict2: publicMetadata))
+        {
+            PublicMetadata = new Dictionary<string, object?>(dictionary: publicMetadata);
+            changed = true;
+        }
+
+        if (privateMetadata != null && !PrivateMetadata.MetadataEquals(dict2: privateMetadata))
+        {
+            PrivateMetadata = new Dictionary<string, object?>(dictionary: privateMetadata);
             changed = true;
         }
 

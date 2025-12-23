@@ -46,17 +46,30 @@ public static partial class OrderModule
                     if (order == null)
                         return Order.Errors.NotFound(command.OrderId);
 
-                    var fulfillmentItems = command.Request.Items.Select(i => FulfillmentItem.Create(
-                        lineItemId: i.LineItemId,
-                        variantId: i.VariantId,
-                        quantity: i.Quantity
-                    ).Value).ToList();
-
-                    var shipmentResult = order.AddShipment(command.Request.StockLocationId, fulfillmentItems);
+                    // Refactored: Create Shipment and its units in Handler
+                    var shipmentResult = Shipment.Create(order.Id, command.Request.StockLocationId);
                     if (shipmentResult.IsError) return shipmentResult.Errors;
+                    var shipment = shipmentResult.Value;
+
+                    foreach (var i in command.Request.Items)
+                    {
+                        var lineItem = order.LineItems.FirstOrDefault(li => li.Id == i.LineItemId);
+                        if (lineItem == null) continue;
+                        
+                        for (int k = 0; k < i.Quantity; k++)
+                        {
+                            var unitResult = InventoryUnit.Create(lineItem.VariantId, lineItem.Id, shipment.Id, InventoryUnit.InventoryUnitState.OnHand);
+                            if (unitResult.IsError) return unitResult.Errors;
+                            shipment.InventoryUnits.Add(unitResult.Value);
+                            lineItem.InventoryUnits.Add(unitResult.Value);
+                        }
+                        order.AddDomainEvent(new Order.Events.ShipmentItemUpdated(order.Id, shipment.Id, lineItem.VariantId));
+                    }
+
+                    order.AddShipment(shipment);
 
                     await dbContext.SaveChangesAsync(ct);
-                    return mapper.Map<Result>(shipmentResult.Value);
+                    return mapper.Map<Result>(shipment);
                 }
             }
         }
@@ -85,9 +98,29 @@ public static partial class OrderModule
                     var createdShipments = new List<Shipment>();
                     foreach (var shipmentPlan in planResult.Value.Shipments)
                     {
-                        var shipmentResult = order.AddShipment(shipmentPlan.FulfillmentLocationId, shipmentPlan.Items);
+                        // Refactored: Create Shipment and its units in Handler
+                        var shipmentResult = Shipment.Create(order.Id, shipmentPlan.FulfillmentLocationId);
                         if (shipmentResult.IsError) return shipmentResult.Errors;
-                        createdShipments.Add(shipmentResult.Value);
+                        var shipment = shipmentResult.Value;
+
+                        foreach (var fulfillmentItem in shipmentPlan.Items)
+                        {
+                            var lineItem = order.LineItems.FirstOrDefault(li => li.Id == fulfillmentItem.LineItemId);
+                            if (lineItem == null) continue;
+                            
+                            var initialState = fulfillmentItem.IsBackordered ? InventoryUnit.InventoryUnitState.Backordered : InventoryUnit.InventoryUnitState.OnHand;
+                            for (int k = 0; k < fulfillmentItem.Quantity; k++)
+                            {
+                                var unitResult = InventoryUnit.Create(lineItem.VariantId, lineItem.Id, shipment.Id, initialState);
+                                if (unitResult.IsError) return unitResult.Errors;
+                                shipment.InventoryUnits.Add(unitResult.Value);
+                                lineItem.InventoryUnits.Add(unitResult.Value);
+                            }
+                            order.AddDomainEvent(new Order.Events.ShipmentItemUpdated(order.Id, shipment.Id, lineItem.VariantId));
+                        }
+
+                        order.AddShipment(shipment);
+                        createdShipments.Add(shipment);
                     }
 
                     await dbContext.SaveChangesAsync(ct);

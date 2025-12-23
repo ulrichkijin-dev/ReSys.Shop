@@ -57,7 +57,7 @@ public sealed class Payment : Aggregate, IHasMetadata
     #region Properties
     public Guid OrderId { get; set; }
     public Guid? PaymentMethodId { get; set; }
-    public decimal AmountCents { get; set; }
+    public long AmountCents { get; set; }
     public string Currency { get; set; } = string.Empty;
     public PaymentState State { get; set; } = PaymentState.Pending;
     public string PaymentMethodType { get; set; } = string.Empty;
@@ -71,6 +71,12 @@ public sealed class Payment : Aggregate, IHasMetadata
     public DateTimeOffset? VoidedAt { get; set; }
     public string? FailureReason { get; set; }
     public string? IdempotencyKey { get; set; }
+
+    /// <summary>
+    /// Total amount refunded in cents. 
+    /// Tracks cumulative refunds against this payment.
+    /// </summary>
+    public long RefundedAmountCents { get; set; }
 
     public IDictionary<string, object?>? PublicMetadata { get; set; } = new Dictionary<string, object?>();
     public IDictionary<string, object?>? PrivateMetadata { get; set; } = new Dictionary<string, object?>();
@@ -97,7 +103,7 @@ public sealed class Payment : Aggregate, IHasMetadata
     #endregion
 
     #region Factory Methods
-    public static ErrorOr<Payment> Create(Guid orderId, decimal amountCents, string currency, string paymentMethodType, Guid paymentMethodId, string? idempotencyKey = null)
+    public static ErrorOr<Payment> Create(Guid orderId, long amountCents, string currency, string paymentMethodType, Guid paymentMethodId, string? idempotencyKey = null)
     {
         if (amountCents < Constraints.AmountCentsMinValue) return Errors.InvalidAmountCents;
         if (string.IsNullOrWhiteSpace(value: currency)) return Errors.CurrencyRequired;
@@ -283,11 +289,29 @@ public sealed class Payment : Aggregate, IHasMetadata
     /// <param name="reason">The reason for the refund.</param>
     /// <param name="referenceTransactionId">Optional transaction ID for the refund from the gateway.</param>
     /// <returns>An ErrorOr result indicating success or failure.</returns>
-    public ErrorOr<Payment> Refund(decimal amountCents, string reason, string? referenceTransactionId = null)
+    public ErrorOr<Payment> Refund(long amountCents, string reason, string? referenceTransactionId = null)
     {
         if (amountCents <= 0) return Errors.InvalidAmountCents;
+        
+        if (State != PaymentState.Completed && State != PaymentState.Refunded)
+            return Errors.InvalidStateTransition(State, PaymentState.Refunded);
 
-        State = PaymentState.Refunded;
+        var remainingBalance = AmountCents - RefundedAmountCents;
+        if (amountCents > remainingBalance)
+        {
+            return Error.Validation(
+                code: "Payment.RefundExceedsBalance",
+                description: $"Refund amount ({amountCents / 100m:C}) exceeds remaining payment balance ({remainingBalance / 100m:C}).");
+        }
+
+        RefundedAmountCents += amountCents;
+        
+        // Only mark as Refunded state if fully refunded, otherwise stays Completed (with partial refund)
+        if (RefundedAmountCents >= AmountCents)
+        {
+            State = PaymentState.Refunded;
+        }
+
         ReferenceTransactionId = referenceTransactionId ?? ReferenceTransactionId;
         UpdatedAt = DateTimeOffset.UtcNow;
 
@@ -308,7 +332,7 @@ public sealed class Payment : Aggregate, IHasMetadata
         public sealed record PaymentFailed(Guid PaymentId, Guid OrderId, string ErrorMessage, string? GatewayErrorCode) : DomainEvent;
         public sealed record PaymentPending(Guid PaymentId, Guid OrderId, string ErrorMessage) : DomainEvent;
         public sealed record PaymentRequiresAction(Guid PaymentId, Guid OrderId, string ReferenceTransactionId, Dictionary<string, string>? RawResponse) : DomainEvent;
-        public sealed record PaymentRefunded(Guid PaymentId, Guid OrderId, decimal RefundAmountCents, string? ReferenceTransactionId, string Reason) : DomainEvent;
+        public sealed record PaymentRefunded(Guid PaymentId, Guid OrderId, long RefundAmountCents, string? ReferenceTransactionId, string Reason) : DomainEvent;
     }
     #endregion
 }

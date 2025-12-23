@@ -62,18 +62,13 @@ public static partial class SettingModule
 
                 await applicationDbContext.BeginTransactionAsync(cancellationToken: cancellationToken);
                 
-                // Update other properties directly as Setting.Update only takes newValue for now
-                setting.Key = request.Key; // Key can also be updated
-                setting.Description = request.Description;
-                setting.DefaultValue = request.DefaultValue;
-                setting.ValueType = request.ValueType;
-                // Handle metadata update if needed
-                // setting.PublicMetadata = request.PublicMetadata;
-                // setting.PrivateMetadata = request.PrivateMetadata;
-
                 var updateResult = setting.Update(
-                    newValue: request.Value); 
-
+                    newValue: request.Value,
+                    description: request.Description,
+                    defaultValue: request.DefaultValue,
+                    valueType: request.ValueType,
+                    publicMetadata: request.PublicMetadata,
+                    privateMetadata: request.PrivateMetadata); 
 
                 if (updateResult.IsError) return updateResult.Errors;
 

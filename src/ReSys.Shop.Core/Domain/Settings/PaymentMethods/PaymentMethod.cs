@@ -1,7 +1,6 @@
 using ReSys.Shop.Core.Common.Domain.Concerns;
 using ReSys.Shop.Core.Common.Domain.Events;
 using ReSys.Shop.Core.Domain.Orders.Payments;
-using ReSys.Shop.Core.Domain.Settings.PaymentMethods.PaymentSources;
 
 namespace ReSys.Shop.Core.Domain.Settings.PaymentMethods;
 
@@ -73,7 +72,7 @@ namespace ReSys.Shop.Core.Domain.Settings.PaymentMethods;
 /// <item><description>PaymentSource: Stores tokenized payment details for future use</description></item>
 /// </list>
 /// </remarks>
-public sealed class PaymentMethod : Aggregate, IHasUniqueName, IHasPosition, IHasMetadata, IHasParameterizableName
+public sealed class PaymentMethod : Aggregate, IHasUniqueName, IHasPosition, IHasMetadata, IHasParameterizableName, ISoftDeletable
 {
     #region Constraints
     /// <summary>
@@ -228,16 +227,6 @@ public sealed class PaymentMethod : Aggregate, IHasUniqueName, IHasPosition, IHa
 
     /// <example>"Fast and secure credit/debit card payments", "PayPal's secure payment platform"</example>
     public string? Description { get; set; }
-
-    /// <summary>
-    /// Gets or sets the code identifying the gateway processor (e.g., "stripe", "paypal", "cod").
-    /// </summary>
-    public string GatewayCode { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the ID of the gateway configuration (where secrets are stored).
-    /// </summary>
-    public Guid? GatewayConfigurationId { get; set; }
 
     /// <summary>
     /// Gets or sets the type of this payment method from the <see cref="PaymentType"/> enumeration.
@@ -474,6 +463,11 @@ public sealed class PaymentMethod : Aggregate, IHasUniqueName, IHasPosition, IHa
     public DateTimeOffset? DeletedAt { get; set; }
 
     /// <summary>
+    /// Gets or sets the identifier of the user who soft deleted this payment method.
+    /// </summary>
+    public string? DeletedBy { get; set; }
+
+    /// <summary>
     /// Gets a value indicating whether this payment method has been soft deleted.
     /// </summary>
     /// <remarks>Returns true if DeletedAt has a value, false otherwise.</remarks>
@@ -508,34 +502,6 @@ public sealed class PaymentMethod : Aggregate, IHasUniqueName, IHasPosition, IHa
     /// </summary>
     /// <see cref="Payment"/>
     public ICollection<Payment> Payments { get; set; } = new List<Payment>();
-
-    /// <summary>
-    /// Gets or sets the collection of payment sources (saved payment details) using this method.
-    /// 
-    /// <para>
-    /// <strong>Purpose:</strong>
-    /// Links to stored payment details (e.g., saved credit cards) that users have registered
-    /// for convenient future transactions.
-    /// </para>
-    /// 
-    /// <para>
-    /// <strong>Relationship Type:</strong>
-    /// One-to-Many reference from Payments.PaymentSources. Many payment sources can reference
-    /// the same payment method. Restrict delete behavior prevents deleting payment methods with
-    /// existing payment sources.
-    /// </para>
-    /// 
-    /// <para>
-    /// <strong>Use Cases:</strong>
-    /// <list type="bullet">
-    /// <item><description>Retrieve all saved cards for a payment method type</description></item>
-    /// <item><description>Support "save card for future use" functionality</description></item>
-    /// <item><description>Enable one-click checkout with saved payment details</description></item>
-    /// </list>
-    /// </para>
-    /// </summary>
-    /// <see cref="PaymentSource"/>
-    public ICollection<PaymentSource> PaymentSources { get; set; } = new List<PaymentSource>();
     #endregion
 
     #region Computed Properties
@@ -583,6 +549,8 @@ public sealed class PaymentMethod : Aggregate, IHasUniqueName, IHasPosition, IHa
     /// Example: PaymentType.CreditCard ? "creditcard"
     /// </remarks>
     public string MethodCode => Type.ToString().ToLowerInvariant();
+
+    bool ISoftDeletable.IsDeleted { get => IsDeleted; set => throw new NotImplementedException(); }
     #endregion
 
     #region Constructor
@@ -871,7 +839,7 @@ public sealed class PaymentMethod : Aggregate, IHasUniqueName, IHasPosition, IHa
     public ErrorOr<Deleted> Delete()
     {
         if (Payments.Any()) return Errors.InUse;
-        DeletedAt = DateTimeOffset.UtcNow;
+        this.MarkAsDeleted();
         Active = false;
         AddDomainEvent(domainEvent: new Events.Deleted(PaymentMethodId: Id));
         return Result.Deleted;
@@ -925,7 +893,7 @@ public sealed class PaymentMethod : Aggregate, IHasUniqueName, IHasPosition, IHa
     public ErrorOr<PaymentMethod> Restore()
     {
         if (!IsDeleted) return this;
-        DeletedAt = null;
+        SoftDeletable.Restore(this);
         Active = true;
         AddDomainEvent(domainEvent: new Events.Restored(PaymentMethodId: Id));
         return this;

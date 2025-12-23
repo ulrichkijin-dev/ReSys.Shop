@@ -57,7 +57,7 @@ public sealed class HighestStockStrategy : IFulfillmentStrategy
         return availableLocations
             .Where(predicate: loc => loc.StockItems.Any(predicate: si => 
                 si.VariantId == variant.Id && 
-                si.CountAvailable >= requiredQuantity))
+                (si.CountAvailable >= requiredQuantity || si.Backorderable)))
             .OrderByDescending(keySelector: loc => loc.StockItems
                 .FirstOrDefault(predicate: si => si.VariantId == variant.Id)?
                 .CountAvailable ?? 0)

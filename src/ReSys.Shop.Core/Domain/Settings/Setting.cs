@@ -1,3 +1,5 @@
+using ReSys.Shop.Core.Common.Domain.Concerns;
+
 namespace ReSys.Shop.Core.Domain.Settings;
 
 /// <summary>
@@ -48,7 +50,7 @@ namespace ReSys.Shop.Core.Domain.Settings;
 /// </list>
 /// </para>
 /// </remarks>
-public sealed class Setting : Aggregate<Guid>
+public sealed class Setting : Aggregate<Guid>, IHasMetadata
 {
     /// <summary>
     /// Gets the unique key identifying this configuration setting.
@@ -74,6 +76,9 @@ public sealed class Setting : Aggregate<Guid>
     /// </summary>
     public ConfigurationValueType ValueType { get; set; }
 
+    public IDictionary<string, object?>? PublicMetadata { get; set; } = new Dictionary<string, object?>();
+    public IDictionary<string, object?>? PrivateMetadata { get; set; } = new Dictionary<string, object?>();
+
     /// <summary>
     /// Private constructor for ORM (Entity Framework Core) materialization.
     /// </summary>
@@ -83,19 +88,15 @@ public sealed class Setting : Aggregate<Guid>
     /// Initializes a new instance of the <see cref="Setting"/> class.
     /// This constructor is primarily used internally by the static <see cref="Create"/> factory method.
     /// </summary>
-    /// <param name="id">The unique identifier of the configuration.</param>
-    /// <param name="key">The unique key of the configuration setting.</param>
-    /// <param name="value">The current value of the configuration setting.</param>
-    /// <param name="description">A description of the configuration setting.</param>
-    /// <param name="defaultValue">The default value of the configuration setting.</param>
-    /// <param name="valueType">The expected data type of the configuration's value.</param>
     private Setting(
         Guid id,
         string key,
         string value,
         string description,
         string defaultValue,
-        ConfigurationValueType valueType)
+        ConfigurationValueType valueType,
+        IDictionary<string, object?>? publicMetadata = null,
+        IDictionary<string, object?>? privateMetadata = null)
         : base(id: id)
     {
         Key = key;
@@ -103,37 +104,26 @@ public sealed class Setting : Aggregate<Guid>
         Description = description;
         DefaultValue = defaultValue;
         ValueType = valueType;
+        PublicMetadata = publicMetadata ?? new Dictionary<string, object?>();
+        PrivateMetadata = privateMetadata ?? new Dictionary<string, object?>();
     }
 
     /// <summary>
     /// Factory method to create a new <see cref="Setting"/> instance.
-    /// Performs basic validation and initializes the configuration with a new GUID.
     /// </summary>
-    /// <param name="key">The unique key for the new configuration setting.</param>
-    /// <param name="value">The initial value for the configuration setting.</param>
-    /// <param name="description">A descriptive explanation of the configuration setting.</param>
-    /// <param name="defaultValue">The default fallback value for the configuration setting.</param>
-    /// <param name="valueType">The expected data type of the configuration's value.</param>
-    /// <returns>
-    /// An <see cref="ErrorOr{Configuration}"/> result.
-    /// Returns the newly created <see cref="Setting"/> instance on success.
-    /// Returns <see cref="Setting.Errors.KeyRequired"/> if the key is null or whitespace.
-    /// </returns>
     public static ErrorOr<Setting> Create(
         string key,
         string value,
         string description,
         string defaultValue,
-        ConfigurationValueType valueType)
+        ConfigurationValueType valueType,
+        IDictionary<string, object?>? publicMetadata = null,
+        IDictionary<string, object?>? privateMetadata = null)
     {
-        // Basic validation as per existing domain entities (e.g., Product.cs)
         if (string.IsNullOrWhiteSpace(value: key))
         {
             return Errors.KeyRequired;
         }
-
-        // Additional validation can be added here if needed,
-        // for instance, checking if the value can be parsed according to ValueType
 
         return new Setting(
             id: Guid.NewGuid(),
@@ -141,29 +131,65 @@ public sealed class Setting : Aggregate<Guid>
             value: value,
             description: description,
             defaultValue: defaultValue,
-            valueType: valueType);
+            valueType: valueType,
+            publicMetadata: publicMetadata,
+            privateMetadata: privateMetadata);
     }
 
     /// <summary>
-    /// Updates the <see cref="Value"/> of the configuration setting.
+    /// Updates the configuration setting.
     /// </summary>
-    /// <param name="newValue">The new value to set for the configuration.</param>
-    /// <returns>
-    /// An <see cref="ErrorOr{Updated}"/> result.
-    /// Returns <see cref="Result.Updated"/> on successful update.
-    /// Returns <see cref="Setting.Errors.ValueRequired"/> if the new value is null or whitespace.
-    /// </returns>
-    public ErrorOr<Updated> Update(string newValue)
+    public ErrorOr<Updated> Update(
+        string? newValue = null,
+        string? description = null,
+        string? defaultValue = null,
+        ConfigurationValueType? valueType = null,
+        IDictionary<string, object?>? publicMetadata = null,
+        IDictionary<string, object?>? privateMetadata = null)
     {
-        if (string.IsNullOrWhiteSpace(value: newValue))
-        {
-            return Errors.ValueRequired;
-        }
-        
-        // Add specific parsing/casting logic based on ValueType if necessary for validation
-        // For now, we'll allow any string and assume parsing happens at application layer.
+        bool changed = false;
 
-        Value = newValue;
+        if (newValue != null && newValue != Value)
+        {
+            Value = newValue;
+            changed = true;
+        }
+
+        if (description != null && description != Description)
+        {
+            Description = description;
+            changed = true;
+        }
+
+        if (defaultValue != null && defaultValue != DefaultValue)
+        {
+            DefaultValue = defaultValue;
+            changed = true;
+        }
+
+        if (valueType.HasValue && valueType.Value != ValueType)
+        {
+            ValueType = valueType.Value;
+            changed = true;
+        }
+
+        if (publicMetadata != null && !PublicMetadata.MetadataEquals(dict2: publicMetadata))
+        {
+            PublicMetadata = new Dictionary<string, object?>(dictionary: publicMetadata);
+            changed = true;
+        }
+
+        if (privateMetadata != null && !PrivateMetadata.MetadataEquals(dict2: privateMetadata))
+        {
+            PrivateMetadata = new Dictionary<string, object?>(dictionary: privateMetadata);
+            changed = true;
+        }
+
+        if (changed)
+        {
+            UpdatedAt = DateTimeOffset.UtcNow;
+        }
+
         return Result.Updated;
     }
 

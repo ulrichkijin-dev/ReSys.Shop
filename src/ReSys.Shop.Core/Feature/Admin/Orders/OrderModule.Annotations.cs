@@ -124,6 +124,24 @@ public static partial class OrderModule
             StatusCode = StatusCodes.Status200OK
         };
 
+        public static ApiEndpointMeta RemoveCoupon => new()
+        {
+            Name = "Admin.Order.RemoveCoupon",
+            Summary = "Remove applied coupon",
+            Description = "Removes the applied promotion from the order.",
+            ResponseType = typeof(ApiResponse),
+            StatusCode = StatusCodes.Status200OK
+        };
+
+        public static ApiEndpointMeta GetCoupons => new()
+        {
+            Name = "Admin.Order.GetCoupons",
+            Summary = "Get applied coupons",
+            Description = "Retrieves information about the applied promotion/coupons for the order.",
+            ResponseType = typeof(ApiResponse<List<Actions.GetCoupons.Result>>),
+            StatusCode = StatusCodes.Status200OK
+        };
+
         public static class Shipments
         {
             public static ApiEndpointMeta GetList => new()

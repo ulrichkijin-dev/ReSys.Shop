@@ -105,6 +105,15 @@ public static partial class CartModule
             StatusCode = StatusCodes.Status200OK
         };
 
+        public static ApiEndpointMeta SetShippingAddress => new()
+        {
+            Name = "Storefront.Cart.SetShippingAddress",
+            Summary = "Set shipping address",
+            Description = "Sets the shipping address for the current cart.",
+            ResponseType = typeof(ApiResponse<Models.CartDetail>),
+            StatusCode = StatusCodes.Status200OK
+        };
+
         public static ApiEndpointMeta ChangeCurrency => new()
         {
             Name = "Storefront.Cart.ChangeCurrency",
@@ -167,6 +176,15 @@ public static partial class CartModule
                 Summary = "Select shipping method",
                 Description = "Assigns a shipping method to the order shipments.",
                 ResponseType = typeof(ApiResponse<Models.CartDetail>),
+                StatusCode = StatusCodes.Status200OK
+            };
+
+            public static ApiEndpointMeta ListPaymentMethods => new()
+            {
+                Name = "Storefront.Checkout.ListPaymentMethods",
+                Summary = "List payment methods",
+                Description = "Retrieves a list of available payment methods for the checkout.",
+                ResponseType = typeof(ApiResponse<List<CartModule.Checkout.ListPaymentMethods.Result>>),
                 StatusCode = StatusCodes.Status200OK
             };
 

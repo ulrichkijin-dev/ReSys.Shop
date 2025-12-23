@@ -110,7 +110,7 @@ public sealed class ProductImage : BaseImageAsset, IHasIdentity<Guid>
             Error.Validation(code: "PRODUCT_IMAGE_EMBEDDING_NOT_GENERATED", description: $"One or both images missing embedding for model '{modelName}'");
 
         public static Error UnsupportedEmbeddingModel(string modelName) =>
-            Error.Validation(code: "PRODUCT_IMAGE_UNSUPPORTED_EMBEDDING_MODEL", description: $"Model '{modelName}' is not supported. Use: mobilenet_v3, efficientnet_b0, clip_vit_b32");
+            Error.Validation(code: "PRODUCT_IMAGE_UNSUPPORTED_EMBEDDING_MODEL", description: $"Model '{modelName}' is not supported. Use: mobilenet_v3, efficientnet_b0");
     }
 
     #endregion
@@ -124,20 +124,11 @@ public sealed class ProductImage : BaseImageAsset, IHasIdentity<Guid>
     public string? DimensionsUnit { get; set; }
 
     // ---------------------------------------------
-    // Supported Embedding Models (Thesis Comparison)
+    // Supported Embedding Models (Thesis Strategy)
     // ---------------------------------------------
 
     /// <summary>
-    /// MobileNetV3 (Efficient CNN) embeddings (1280-dim).
-    /// Focus: Depthwise Separable Convolutions.
-    /// </summary>
-    public Vector? EmbeddingMobilenet { get; set; }
-    public string? EmbeddingMobilenetModel { get; set; } = "mobilenet_v3";
-    public DateTimeOffset? EmbeddingMobilenetGeneratedAt { get; set; }
-    public string? EmbeddingMobilenetChecksum { get; set; }
-
-    /// <summary>
-    /// EfficientNet B0 (Scaled CNN) embeddings (1280-dim).
+    /// EfficientNet-B0 (Production Baseline CNN) - 1280-dim.
     /// Focus: Compound Scaling.
     /// </summary>
     public Vector? EmbeddingEfficientnet { get; set; }
@@ -146,13 +137,40 @@ public sealed class ProductImage : BaseImageAsset, IHasIdentity<Guid>
     public string? EmbeddingEfficientnetChecksum { get; set; }
 
     /// <summary>
-    /// CLIP ViT-B/32 (Transformer) embeddings (512-dim).
-    /// Focus: Attention Mechanisms + Language.
+    /// ConvNeXt-Tiny (Modern CNN) - 768-dim.
+    /// Focus: Modernized CNN Architecture.
+    /// </summary>
+    public Vector? EmbeddingConvnext { get; set; }
+    public string? EmbeddingConvnextModel { get; set; } = "convnext_tiny";
+    public DateTimeOffset? EmbeddingConvnextGeneratedAt { get; set; }
+    public string? EmbeddingConvnextChecksum { get; set; }
+
+    /// <summary>
+    /// CLIP ViT-B/16 (General Transformer) - 512-dim.
+    /// Focus: General Semantic Retrieval.
     /// </summary>
     public Vector? EmbeddingClip { get; set; }
-    public string? EmbeddingClipModel { get; set; } = "clip_vit_b32";
+    public string? EmbeddingClipModel { get; set; } = "clip_vit_b16";
     public DateTimeOffset? EmbeddingClipGeneratedAt { get; set; }
     public string? EmbeddingClipChecksum { get; set; }
+
+    /// <summary>
+    /// Fashion-CLIP (Domain-Specific Transformer) - 512-dim.
+    /// Focus: Semantic Retrieval.
+    /// </summary>
+    public Vector? EmbeddingFclip { get; set; }
+    public string? EmbeddingFclipModel { get; set; } = "fashion_clip";
+    public DateTimeOffset? EmbeddingFclipGeneratedAt { get; set; }
+    public string? EmbeddingFclipChecksum { get; set; }
+
+    /// <summary>
+    /// DINOv2 ViT-S/14 (Self-Supervised Transformer) - 384-dim.
+    /// Focus: Visual Structure and Silhouette.
+    /// </summary>
+    public Vector? EmbeddingDino { get; set; }
+    public string? EmbeddingDinoModel { get; set; } = "dinov2_vits14";
+    public DateTimeOffset? EmbeddingDinoGeneratedAt { get; set; }
+    public string? EmbeddingDinoChecksum { get; set; }
 
     #endregion
 
@@ -172,10 +190,12 @@ public sealed class ProductImage : BaseImageAsset, IHasIdentity<Guid>
     public bool IsThumbnail => Type == nameof(ProductImageType.Thumbnail);
     public string AspectRatio => Width.HasValue && Height.HasValue && Height > 0 ? $"{Width}:{Height}" : "unknown";
 
-    public bool HasEmbeddingMobilenet => EmbeddingMobilenet != null;
     public bool HasEmbeddingEfficientnet => EmbeddingEfficientnet != null;
+    public bool HasEmbeddingConvnext => EmbeddingConvnext != null;
     public bool HasEmbeddingClip => EmbeddingClip != null;
-    public bool HasAnyEmbedding => HasEmbeddingMobilenet || HasEmbeddingEfficientnet || HasEmbeddingClip;
+    public bool HasEmbeddingFclip => EmbeddingFclip != null;
+    public bool HasEmbeddingDino => EmbeddingDino != null;
+    public bool HasAnyEmbedding => HasEmbeddingEfficientnet || HasEmbeddingConvnext || HasEmbeddingClip || HasEmbeddingFclip || HasEmbeddingDino;
 
     public double? CalculatedAspectRatio =>
         Width.HasValue && Height.HasValue && Height > 0
@@ -265,9 +285,10 @@ public sealed class ProductImage : BaseImageAsset, IHasIdentity<Guid>
         {
             Url = url.Trim();
             // Clear all embeddings if image changes
-            EmbeddingMobilenet = null; EmbeddingMobilenetGeneratedAt = null; EmbeddingMobilenetChecksum = null;
             EmbeddingEfficientnet = null; EmbeddingEfficientnetGeneratedAt = null; EmbeddingEfficientnetChecksum = null;
-            EmbeddingClip = null; EmbeddingClipGeneratedAt = null; EmbeddingClipChecksum = null;
+            EmbeddingConvnext = null; EmbeddingConvnextGeneratedAt = null; EmbeddingConvnextChecksum = null;
+            EmbeddingFclip = null; EmbeddingFclipGeneratedAt = null; EmbeddingFclipChecksum = null;
+            EmbeddingDino = null; EmbeddingDinoGeneratedAt = null; EmbeddingDinoChecksum = null;
             changed = true;
         }
 
@@ -307,7 +328,7 @@ public sealed class ProductImage : BaseImageAsset, IHasIdentity<Guid>
         if (embedding.Any(float.IsNaN)) return Errors.EmbeddingContainsNaN(modelName);
         if (embedding.Any(float.IsInfinity)) return Errors.EmbeddingContainsInfinity(modelName);
 
-        double magnitude = Math.Sqrt(embedding.Sum(x => x * x));
+        double magnitude = Math.Sqrt(embedding.Sum(x => (double)x * x));
         if (Math.Abs(magnitude - 1.0) > 0.05) return Errors.EmbeddingNotProperlyNormalized(modelName, magnitude);
 
         Vector vector = new Vector(v: embedding);
@@ -317,26 +338,45 @@ public sealed class ProductImage : BaseImageAsset, IHasIdentity<Guid>
 
         switch (modelName.ToLowerInvariant())
         {
-            case "mobilenet_v3":
-                EmbeddingMobilenet = vector;
-                EmbeddingMobilenetModel = defaultModelVersion;
-                EmbeddingMobilenetGeneratedAt = now;
-                EmbeddingMobilenetChecksum = finalChecksum;
-                break;
-
             case "efficientnet_b0":
+            case "efficientnet":
                 EmbeddingEfficientnet = vector;
                 EmbeddingEfficientnetModel = defaultModelVersion;
                 EmbeddingEfficientnetGeneratedAt = now;
                 EmbeddingEfficientnetChecksum = finalChecksum;
                 break;
 
-            case "clip_vit_b32":
+            case "convnext_tiny":
+            case "convnext":
+                EmbeddingConvnext = vector;
+                EmbeddingConvnextModel = defaultModelVersion;
+                EmbeddingConvnextGeneratedAt = now;
+                EmbeddingConvnextChecksum = finalChecksum;
+                break;
+
+            case "clip_vit_b16":
             case "clip":
                 EmbeddingClip = vector;
                 EmbeddingClipModel = defaultModelVersion;
                 EmbeddingClipGeneratedAt = now;
                 EmbeddingClipChecksum = finalChecksum;
+                break;
+
+            case "fashion_clip":
+            case "fclip":
+                EmbeddingFclip = vector;
+                EmbeddingFclipModel = defaultModelVersion;
+                EmbeddingFclipGeneratedAt = now;
+                EmbeddingFclipChecksum = finalChecksum;
+                break;
+
+            case "dinov2_vits14":
+            case "dinov2":
+            case "dino":
+                EmbeddingDino = vector;
+                EmbeddingDinoModel = defaultModelVersion;
+                EmbeddingDinoGeneratedAt = now;
+                EmbeddingDinoChecksum = finalChecksum;
                 break;
 
             default:
@@ -375,18 +415,22 @@ public sealed class ProductImage : BaseImageAsset, IHasIdentity<Guid>
     private Vector? GetEmbeddingByModel(string modelName) =>
         modelName.ToLowerInvariant() switch
         {
-            "mobilenet_v3" => EmbeddingMobilenet,
-            "efficientnet_b0" => EmbeddingEfficientnet,
-            "clip_vit_b32" or "clip" => EmbeddingClip,
+            "efficientnet_b0" or "efficientnet" => EmbeddingEfficientnet,
+            "convnext_tiny" or "convnext" => EmbeddingConvnext,
+            "clip_vit_b16" or "clip" => EmbeddingClip,
+            "fashion_clip" or "fclip" => EmbeddingFclip,
+            "dinov2_vits14" or "dinov2" or "dino" => EmbeddingDino,
             _ => null
         };
 
     private ErrorOr<int> TryGetExpectedDimension(string modelName) =>
         modelName.ToLowerInvariant() switch
         {
-            "mobilenet_v3" => 1280,
-            "efficientnet_b0" => 1280,
-            "clip_vit_b32" or "clip" => 512,
+            "efficientnet_b0" or "efficientnet" => 1280,
+            "convnext_tiny" or "convnext" => 768,
+            "clip_vit_b16" or "clip" => 512,
+            "fashion_clip" or "fclip" => 512,
+            "dinov2_vits14" or "dinov2" or "dino" => 384,
             _ => Errors.UnsupportedEmbeddingModel(modelName)
         };
 
@@ -411,11 +455,11 @@ public sealed class ProductImage : BaseImageAsset, IHasIdentity<Guid>
     {
         return type switch
         {
-            ProductImageType.Default => new ImageSizeSpec(1200, null, null, false, false),
+            ProductImageType.Default => new ImageSizeSpec(720, null, null, true, false), // Demo Size (720px)
             ProductImageType.Square => new ImageSizeSpec(1024, 1024, 1d, false, true),
             ProductImageType.Thumbnail => new ImageSizeSpec(300, 300, 1d, false, true),
             ProductImageType.Gallery => new ImageSizeSpec(1600, null, null, false, false),
-            ProductImageType.Search => new ImageSizeSpec(512, 512, 1d, true, true),
+            ProductImageType.Search => new ImageSizeSpec(512, 512, 1d, true, true),      // AI Search Size
             _ => new ImageSizeSpec(null, null, null, true, false)
         };
     }

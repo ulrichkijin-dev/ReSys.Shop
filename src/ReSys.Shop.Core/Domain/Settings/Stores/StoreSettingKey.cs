@@ -31,3 +31,8 @@ public enum EmailSettingKey
 {
     NewOrderNotificationEmail
 }
+
+public enum InventorySettingKey
+{
+    LowStockThreshold
+}

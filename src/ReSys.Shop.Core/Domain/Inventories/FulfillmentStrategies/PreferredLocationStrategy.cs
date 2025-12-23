@@ -74,7 +74,7 @@ public sealed class PreferredLocationStrategy : IFulfillmentStrategy
         var locationsWithStock = availableLocations
             .Where(predicate: loc => loc.StockItems.Any(predicate: si => 
                 si.VariantId == variant.Id && 
-                si.CountAvailable >= requiredQuantity))
+                (si.CountAvailable >= requiredQuantity || si.Backorderable)))
             .ToList();
 
         if (!locationsWithStock.Any())

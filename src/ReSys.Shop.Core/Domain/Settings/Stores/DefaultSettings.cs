@@ -104,7 +104,15 @@ public static class DefaultSettings
             value: "orders@example.com",
             description: "New order notification email",
             defaultValue: "orders@example.com",
-            type: ConfigurationValueType.String)
+            type: ConfigurationValueType.String),
+
+        // ────────────── Inventory ──────────────
+        Create(
+            key: SettingKey.Inventory(key: InventorySettingKey.LowStockThreshold),
+            value: "5",
+            description: "Default threshold for low stock alerts",
+            defaultValue: "5",
+            type: ConfigurationValueType.Integer)
     ];
 
     private static Setting Create(

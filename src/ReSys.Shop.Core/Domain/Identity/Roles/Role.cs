@@ -61,7 +61,7 @@ namespace ReSys.Shop.Core.Domain.Identity.Roles;
 /// </list>
 /// </para>
 /// </remarks>
-public sealed class Role : IdentityRole, IHasVersion, IHasDomainEvents, IHasAuditable
+public sealed class Role : IdentityRole, IHasVersion, IHasDomainEvents, IHasAuditable, IHasMetadata
 {
     #region Constraints
     /// <summary>
@@ -167,6 +167,9 @@ public sealed class Role : IdentityRole, IHasVersion, IHasDomainEvents, IHasAudi
     /// </summary>
     public bool IsSystemRole { get; set; }
 
+    public IDictionary<string, object?>? PublicMetadata { get; set; } = new Dictionary<string, object?>();
+    public IDictionary<string, object?>? PrivateMetadata { get; set; } = new Dictionary<string, object?>();
+
     /// <summary>
     /// Gets or sets the UTC timestamp when the role was created.
     /// Inherited from <see cref="IHasAuditable"/>.
@@ -249,7 +252,9 @@ public sealed class Role : IdentityRole, IHasVersion, IHasDomainEvents, IHasAudi
         int priority = 0,
         bool isSystemRole = false,
         bool isDefault = false,
-        string? createdBy = null)
+        string? createdBy = null,
+        IDictionary<string, object?>? publicMetadata = null,
+        IDictionary<string, object?>? privateMetadata = null)
     {
         string trimmedName = name.Trim();
 
@@ -263,6 +268,8 @@ public sealed class Role : IdentityRole, IHasVersion, IHasDomainEvents, IHasAudi
             Priority = priority,
             IsSystemRole = isSystemRole,
             IsDefault = isDefault,
+            PublicMetadata = publicMetadata ?? new Dictionary<string, object?>(),
+            PrivateMetadata = privateMetadata ?? new Dictionary<string, object?>(),
             CreatedAt = DateTimeOffset.UtcNow,
             CreatedBy = createdBy
         };
@@ -305,7 +312,9 @@ public sealed class Role : IdentityRole, IHasVersion, IHasDomainEvents, IHasAudi
         int? priority = null,
         bool? isSystemRole = null,
         bool? isDefault = null,
-        string? updatedBy = null)
+        string? updatedBy = null,
+        IDictionary<string, object?>? publicMetadata = null,
+        IDictionary<string, object?>? privateMetadata = null)
     {
         if (IsDefault)
             return Errors.CannotModifyDefaultRole(roleName: Name ?? "Unknown");
@@ -348,6 +357,18 @@ public sealed class Role : IdentityRole, IHasVersion, IHasDomainEvents, IHasAudi
         if (isDefault.HasValue && isDefault != IsDefault)
         {
             IsDefault = isDefault.Value;
+            changed = true;
+        }
+
+        if (publicMetadata != null && !PublicMetadata.MetadataEquals(dict2: publicMetadata))
+        {
+            PublicMetadata = new Dictionary<string, object?>(dictionary: publicMetadata);
+            changed = true;
+        }
+
+        if (privateMetadata != null && !PrivateMetadata.MetadataEquals(dict2: privateMetadata))
+        {
+            PrivateMetadata = new Dictionary<string, object?>(dictionary: privateMetadata);
             changed = true;
         }
 

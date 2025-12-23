@@ -19,9 +19,9 @@ public class FulfillmentPlanner(FulfillmentStrategyFactory strategyFactory, IApp
 
         var strategy = strategyFactory.GetStrategy(strategyType: parsedStrategyType);
 
-        var fulfillmentShipmentPlans = new List<FulfillmentShipmentPlan>();
         var allLineItems = order.LineItems.ToList();
         var fulfilledLineItemIds = new HashSet<Guid>();
+        var itemsByLocation = new Dictionary<Guid, List<FulfillmentItem>>();
 
         foreach (var lineItem in allLineItems)
         {
@@ -56,13 +56,9 @@ public class FulfillmentPlanner(FulfillmentStrategyFactory strategyFactory, IApp
             var stockItem = variant.StockItems.First(si => si.StockLocationId == selectedLocation.Id);
             bool isBackordered = stockItem.CountAvailable < lineItem.Quantity;
 
-            var shipmentPlan = fulfillmentShipmentPlans.FirstOrDefault(p => p.FulfillmentLocationId == selectedLocation.Id);
-            if (shipmentPlan is null)
+            if (!itemsByLocation.ContainsKey(selectedLocation.Id))
             {
-                var shipmentPlanResult = FulfillmentShipmentPlan.Create(selectedLocation.Id, new List<FulfillmentItem>());
-                if (shipmentPlanResult.IsError) return shipmentPlanResult.Errors;
-                shipmentPlan = shipmentPlanResult.Value;
-                fulfillmentShipmentPlans.Add(shipmentPlan);
+                itemsByLocation[selectedLocation.Id] = new List<FulfillmentItem>();
             }
 
             var fulfillmentItemResult = FulfillmentItem.Create(
@@ -73,8 +69,16 @@ public class FulfillmentPlanner(FulfillmentStrategyFactory strategyFactory, IApp
 
             if (fulfillmentItemResult.IsError) return fulfillmentItemResult.Errors;
 
-            shipmentPlan.Items.Add(fulfillmentItemResult.Value);
+            itemsByLocation[selectedLocation.Id].Add(fulfillmentItemResult.Value);
             fulfilledLineItemIds.Add(lineItem.Id);
+        }
+
+        var fulfillmentShipmentPlans = new List<FulfillmentShipmentPlan>();
+        foreach (var entry in itemsByLocation)
+        {
+            var shipmentPlanResult = FulfillmentShipmentPlan.Create(entry.Key, entry.Value);
+            if (shipmentPlanResult.IsError) return shipmentPlanResult.Errors;
+            fulfillmentShipmentPlans.Add(shipmentPlanResult.Value);
         }
 
         var totalItems = allLineItems.Count;

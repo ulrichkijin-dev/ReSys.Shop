@@ -239,6 +239,7 @@ public sealed class StockItem : Aggregate, IHasMetadata
             QuantityOnHand = quantityOnHand,
             QuantityReserved = quantityReserved,
             Backorderable = backorderable,
+            MaxBackorderQuantity = maxBackorderQuantity ?? Constraints.DefaultMaxBackorderQuantity,
             PublicMetadata = publicMetadata,
             PrivateMetadata = privateMetadata,
             CreatedAt = DateTimeOffset.UtcNow

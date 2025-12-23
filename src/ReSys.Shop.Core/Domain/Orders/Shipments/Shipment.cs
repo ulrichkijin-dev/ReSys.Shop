@@ -151,6 +151,9 @@ public sealed class Shipment : Aggregate
     /// </summary>
     public ErrorOr<Shipment> AllocateInventory()
     {
+        if (Order?.State == Order.OrderState.Canceled)
+            return Error.Validation(code: "Shipment.OrderCanceled", description: "Cannot allocate inventory for a canceled order.");
+
         if (State != ShipmentState.Pending)
             return Error.Validation(code: "Shipment.InvalidStateForAllocation",
                 description: "Shipment must be in Pending state.");
@@ -191,6 +194,9 @@ public sealed class Shipment : Aggregate
     /// </summary>
     public ErrorOr<Shipment> Ready()
     {
+        if (Order?.State == Order.OrderState.Canceled)
+            return Error.Validation(code: "Shipment.OrderCanceled", description: "Cannot mark shipment as ready for a canceled order.");
+
         if (State != ShipmentState.Pending)
             return Error.Validation(code: "Shipment.NotPending",
                 description: "Shipment must be pending to mark as ready.");
@@ -212,11 +218,22 @@ public sealed class Shipment : Aggregate
     /// </summary>
     public ErrorOr<Shipment> Ship(string? trackingNumber = null)
     {
+        if (Order?.State == Order.OrderState.Canceled)
+            return Error.Validation(code: "Shipment.OrderCanceled", description: "Cannot ship a canceled order.");
+
         if (State == ShipmentState.Shipped)
             return this;
 
         if (State == ShipmentState.Canceled)
             return Error.Validation(code: "Shipment.AlreadyCanceled", description: "Cannot ship canceled shipment.");
+
+        // Guard: Cannot ship if items are backordered
+        if (InventoryUnits.Any(u => u.State == InventoryUnit.InventoryUnitState.Backordered))
+        {
+            return Error.Validation(
+                code: "Shipment.CannotShipWithBackorders",
+                description: "Cannot ship shipment containing backordered items. Fill backorders first.");
+        }
 
         if (trackingNumber != null && trackingNumber.Length > Constraints.TrackingNumberMaxLength)
             return Errors.TrackingNumberTooLong;

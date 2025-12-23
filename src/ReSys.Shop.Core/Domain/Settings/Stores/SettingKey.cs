@@ -13,4 +13,7 @@ public static class SettingKey
 
     public static string Email(EmailSettingKey key)
         => $"Email.{key}";
+
+    public static string Inventory(InventorySettingKey key)
+        => $"Inventory.{key}";
 }

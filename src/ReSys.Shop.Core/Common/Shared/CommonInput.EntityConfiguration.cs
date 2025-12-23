@@ -7,6 +7,8 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
+using ReSys.Shop.Core.Common.Domain.Concerns;
+
 namespace ReSys.Shop.Core.Common.Shared;
 
 public static partial class CommonInput
@@ -578,7 +580,7 @@ public static partial class CommonInput
         }
     }
     #endregion
-
+    
     #region Enum
     #region PostgreSQL Native Enum
 

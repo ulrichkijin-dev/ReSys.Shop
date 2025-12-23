@@ -147,7 +147,7 @@ namespace ReSys.Shop.Core.Domain.Settings.ShippingMethods;
 /// </code>
 /// </example>
 /// </remarks>
-public sealed class ShippingMethod : Aggregate, IHasUniqueName, IHasPosition, IHasParameterizableName, IHasMetadata, IHasDisplayOn
+public sealed class ShippingMethod : Aggregate, IHasUniqueName, IHasPosition, IHasParameterizableName, IHasMetadata, IHasDisplayOn, ISoftDeletable
 {
     #region Constraints
     /// <summary>
@@ -343,6 +343,12 @@ public sealed class ShippingMethod : Aggregate, IHasUniqueName, IHasPosition, IH
     /// Both, or None (hidden). Managed by IHasDisplayOn concern.
     /// </summary>
     public DisplayOn DisplayOn { get; set; } = DisplayOn.Both;
+
+    #region Soft Delete
+    public bool IsDeleted { get; set; }
+    public DateTimeOffset? DeletedAt { get; set; }
+    public string? DeletedBy { get; set; }
+    #endregion
     #endregion
 
     #region Relationships
@@ -710,6 +716,7 @@ public sealed class ShippingMethod : Aggregate, IHasUniqueName, IHasPosition, IH
     /// </remarks>
     public ErrorOr<Deleted> Delete()
     {
+        this.MarkAsDeleted();
         AddDomainEvent(domainEvent: new Events.Deleted(ShippingMethodId: Id));
         return Result.Deleted;
     }

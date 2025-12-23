@@ -13,7 +13,7 @@ public static partial class CartModule
         {
             public Guid Id { get; init; }
             public string Number { get; init; } = string.Empty;
-            public string? Token { get; init; }
+            public string? AdhocCustomerId { get; init; }
             public string State { get; init; } = string.Empty;
             public decimal Total { get; init; }
             public decimal ItemTotal { get; init; }
@@ -65,7 +65,7 @@ public static partial class CartModule
             public void Register(TypeAdapterConfig config)
             {
                 config.NewConfig<Order, CartDetail>()
-                    .Map(dest => dest.Token, src => src.GuestToken)
+                    .Map(dest => dest.AdhocCustomerId, src => src.AdhocCustomerId)
                     .Map(dest => dest.State, src => src.State.ToString())
                     .Map(dest => dest.LineItems, src => src.LineItems)
                     .Map(dest => dest.Adjustments, src => src.OrderAdjustments)

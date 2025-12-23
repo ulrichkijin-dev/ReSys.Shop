@@ -77,6 +77,7 @@ public static partial class OrderModule
             public Guid Id { get; init; }
             public string State { get; init; } = string.Empty;
             public decimal Amount { get; init; }
+            public decimal RefundedAmount { get; init; }
             public string PaymentMethodType { get; init; } = string.Empty;
             public string? ReferenceTransactionId { get; init; }
             public DateTimeOffset CreatedAt { get; init; }
@@ -119,7 +120,8 @@ public static partial class OrderModule
                     .Map(dest => dest.StockLocationName, src => src.StockLocation != null ? src.StockLocation.Name : string.Empty);
 
                 config.NewConfig<Payment, PaymentItem>()
-                    .Map(dest => dest.State, src => src.State.ToString());
+                    .Map(dest => dest.State, src => src.State.ToString())
+                    .Map(dest => dest.RefundedAmount, src => src.RefundedAmountCents / 100m);
 
                 config.NewConfig<OrderHistory, HistoryItem>()
                     .Map(dest => dest.FromState, src => src.FromState.HasValue ? src.FromState.Value.ToString() : null)

@@ -12,13 +12,15 @@ public static partial class SettingModule
     public static class Models
     {
         // Request:
-        public record Parameter // Setting doesn't have ParameterizableName, Position, Filterable
+        public record Parameter : IHasMetadata
         {
             public string Key { get; set; } = string.Empty;
             public string Value { get; set; } = string.Empty;
             public string Description { get; set; } = string.Empty;
             public string DefaultValue { get; set; } = string.Empty;
-            public ConfigurationValueType ValueType { get; set; } // Changed from bool Filterable, int Position, string Presentation
+            public ConfigurationValueType ValueType { get; set; }
+            public IDictionary<string, object?>? PublicMetadata { get; set; }
+            public IDictionary<string, object?>? PrivateMetadata { get; set; }
         }
 
         // Validator:
@@ -26,12 +28,12 @@ public static partial class SettingModule
         {
             public ParameterValidator()
             {
-                const string prefix = nameof(Setting); // Changed from nameof(OptionType)
+                const string prefix = nameof(Setting);
                 RuleFor(x => x.Key)
                     .NotEmpty()
                     .WithErrorCode(CommonInput.Errors.Required(prefix, nameof(Setting.Key)).Code)
                     .WithMessage(CommonInput.Errors.Required(prefix, nameof(Setting.Key)).Description)
-                    .MaximumLength(Setting.Constraints.KeyMaxLength) // Use Setting constraints
+                    .MaximumLength(Setting.Constraints.KeyMaxLength)
                     .WithErrorCode(CommonInput.Errors.TooLong(prefix, nameof(Setting.Key), Setting.Constraints.KeyMaxLength).Code)
                     .WithMessage(CommonInput.Errors.TooLong(prefix, nameof(Setting.Key), Setting.Constraints.KeyMaxLength).Description);
 
@@ -53,9 +55,7 @@ public static partial class SettingModule
                     .WithErrorCode(CommonInput.Errors.TooLong(prefix, nameof(Setting.DefaultValue), Setting.Constraints.DefaultValueMaxLength).Code)
                     .WithMessage(CommonInput.Errors.TooLong(prefix, nameof(Setting.DefaultValue), Setting.Constraints.DefaultValueMaxLength).Description);
 
-                // Assuming ConfigurationValueType is an enum, its validation might be implicit or
-                // custom if there are specific valid values beyond the enum's definition.
-                // For now, no explicit validation added beyond default enum behavior.
+                this.AddMetadataSupportRules(prefix: prefix);
             }
         }
 
@@ -63,18 +63,18 @@ public static partial class SettingModule
         public record SelectItem
         {
             public Guid Id { get; set; }
-            public string Key { get; set; } = string.Empty; // Changed from Name
-            public string Value { get; set; } = string.Empty; // New property
+            public string Key { get; set; } = string.Empty;
+            public string Value { get; set; } = string.Empty;
         }
 
         public record ListItem
         {
             // Properties:
             public Guid Id { get; set; }
-            public string Key { get; set; } = string.Empty; // Changed from Name
+            public string Key { get; set; } = string.Empty;
             public string Value { get; set; } = string.Empty;
             public string Description { get; set; } = string.Empty;
-            public ConfigurationValueType ValueType { get; set; } // Changed from Position, Filterable
+            public ConfigurationValueType ValueType { get; set; }
 
             // Audit time:
             public DateTimeOffset CreatedAt { get; set; }
@@ -94,31 +94,13 @@ public static partial class SettingModule
             public void Register(TypeAdapterConfig config)
             {
                 // Setting -> SelectItem
-                config.NewConfig<Setting, SelectItem>()
-                    .Map(dest => dest.Id, src => src.Id)
-                    .Map(dest => dest.Key, src => src.Key)
-                    .Map(dest => dest.Value, src => src.Value);
+                config.NewConfig<Setting, SelectItem>();
 
                 // Setting -> ListItem
-                config.NewConfig<Setting, ListItem>()
-                    .Map(dest => dest.Id, src => src.Id)
-                    .Map(dest => dest.Key, src => src.Key)
-                    .Map(dest => dest.Value, src => src.Value)
-                    .Map(dest => dest.Description, src => src.Description)
-                    .Map(dest => dest.ValueType, src => src.ValueType)
-                    .Map(dest => dest.CreatedAt, src => src.CreatedAt)
-                    .Map(dest => dest.UpdatedAt, src => src.UpdatedAt);
+                config.NewConfig<Setting, ListItem>();
 
                 // Setting -> Detail
-                config.NewConfig<Setting, Detail>()
-                    .Map(dest => dest.Id, src => src.Id)
-                    .Map(dest => dest.Key, src => src.Key)
-                    .Map(dest => dest.Value, src => src.Value)
-                    .Map(dest => dest.Description, src => src.Description)
-                    .Map(dest => dest.DefaultValue, src => src.DefaultValue)
-                    .Map(dest => dest.ValueType, src => src.ValueType)
-                    .Map(dest => dest.CreatedAt, src => src.CreatedAt)
-                    .Map(dest => dest.UpdatedAt, src => src.UpdatedAt);
+                config.NewConfig<Setting, Detail>();
             }
         }
     }

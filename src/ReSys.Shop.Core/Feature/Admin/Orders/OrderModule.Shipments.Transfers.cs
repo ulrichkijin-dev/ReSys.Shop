@@ -1,6 +1,5 @@
 using ReSys.Shop.Core.Domain.Orders;
 using ReSys.Shop.Core.Domain.Orders.Shipments;
-using ReSys.Shop.Core.Domain.Inventories.FulfillmentStrategies;
 
 namespace ReSys.Shop.Core.Feature.Admin.Orders;
 
@@ -80,22 +79,23 @@ public static partial class OrderModule
                     if (units.Count < command.Request.Quantity)
                         return Error.Validation(code: "Shipment.InsufficientUnits", description: "Not enough shippable units in source shipment.");
 
-                    // Create new shipment at target location
-                    var fulfillmentItems = new List<FulfillmentItem> { 
-                        FulfillmentItem.Create(units[0].LineItemId, command.Request.VariantId, command.Request.Quantity).Value 
-                    };
-                    
-                    var shipmentResult = order.AddShipment(command.Request.TargetLocationId, fulfillmentItems);
+                    // Refactored: Create new shipment at target location in Handler
+                    var shipmentResult = Shipment.Create(order.Id, command.Request.TargetLocationId);
                     if (shipmentResult.IsError) return shipmentResult.Errors;
-                    
-                    // Remove units from source
+                    var targetShipment = shipmentResult.Value;
+
                     foreach (var unit in units)
                     {
+                        unit.ChangeShipment(targetShipment.Id);
                         source.InventoryUnits.Remove(unit);
-                        dbContext.Set<InventoryUnit>().Remove(unit);
+                        targetShipment.InventoryUnits.Add(unit);
                     }
 
+                    order.AddShipment(targetShipment);
+                    order.AddDomainEvent(new Order.Events.ShipmentCreated(order.Id, targetShipment.Id, targetShipment.StockLocationId));
+                    
                     order.AddDomainEvent(new Order.Events.ShipmentItemUpdated(order.Id, source.Id, command.Request.VariantId));
+                    order.AddDomainEvent(new Order.Events.ShipmentItemUpdated(order.Id, targetShipment.Id, command.Request.VariantId));
 
                     await dbContext.SaveChangesAsync(ct);
                     return Result.Success;
