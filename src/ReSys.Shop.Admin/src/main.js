@@ -1,34 +1,57 @@
-import { createApp } from 'vue';
-import App from './App.vue';
-import router from './router';
+// src/ReSys.Shop.Admin/src/main.js
 
-// PrimeVue imports
-import Nora  from '@primeuix/themes/nora';
-import PrimeVue from 'primevue/config';
-import ConfirmationService from 'primevue/confirmationservice';
-import ToastService from 'primevue/toastservice';
+import { createApp } from 'vue'
+import { createPinia } from 'pinia'
+import App from './App.vue'
 
-// Axios initialization
-// import { initializeAxios } from "@/api/axios"
+import '@/assets/styles.scss'
+import '@/assets/tailwind.css'
 
-import '@/assets/tailwind.css';
-import '@/assets/styles.scss';
+// PrimeVue setup
+import PrimeVue from 'primevue/config'
+import Aura from '@primevue/themes/aura'
+import ToastService from 'primevue/toastservice'
+import Toast from 'primevue/toast'
 
-const app = createApp(App);
+// HTTP Client configuration
+import { configureHttpClient } from './utils/http-client'
 
-app.use(router);
+// Notification Service
+import { PrimeVueNotificationService } from './services/notification/primevue.notification.service'
+
+import router from './router'
+
+const app = createApp(App)
+const pinia = createPinia()
+
+app.use(pinia) // Install Pinia first
+app.use(router)
+
+// Install PrimeVue and ToastService
 app.use(PrimeVue, {
-    theme: {
-        preset: Nora,
-        options: {
-             prefix: 'p',
-            darkModeSelector: '.app-dark'
-        }
-    }
-});
-app.use(ToastService);
-app.use(ConfirmationService);
+  theme: {
+    preset: Aura,
+    options: {
+      darkModeSelector: '.app-dark',
+    },
+  },
+})
+app.use(ToastService)
 
-// initializeAxios();
+// Initialize the notification service with PrimeVue's $toast instance
+const notificationService = new PrimeVueNotificationService(app.config.globalProperties.$toast)
 
-app.mount('#app');
+// Configure the HTTP client by injecting the notification service
+const httpClient = configureHttpClient(notificationService)
+
+// Make the HTTP client and notification service globally available for convenience
+app.config.globalProperties.$httpClient = httpClient
+app.config.globalProperties.$notification = notificationService
+
+// Register the PrimeVue Toast component globally
+app.component('PrimeToast', Toast)
+
+// If you have a router, enable it here
+// app.use(router);
+
+app.mount('#app')
