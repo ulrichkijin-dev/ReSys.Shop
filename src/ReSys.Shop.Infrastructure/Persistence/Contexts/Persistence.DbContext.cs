@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
 using ReSys.Shop.Core.Common.Constants;
-using ReSys.Shop.Core.Domain.Catalog.Products.Images;
 using ReSys.Shop.Core.Domain.Identity.Roles;
 using ReSys.Shop.Core.Domain.Identity.Roles.Claims;
 using ReSys.Shop.Core.Domain.Identity.Users;
@@ -59,7 +58,6 @@ public sealed class ApplicationDbContext(
         }
 
         builder.ApplyUtcConversions();
-
     }
     public bool HasActiveTransaction => _currentTransaction != null;
 

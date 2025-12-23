@@ -1,6 +1,10 @@
 using Stripe;
+
 using ReSys.Shop.Core.Domain.Orders.Payments;
 using ReSys.Shop.Core.Domain.Orders.Payments.Gateways;
+using ReSys.Shop.Core.Common.Services.Security.Encryptors.Interfaces;
+using ReSys.Shop.Core.Common.Domain.Concerns;
+
 using DomainPaymentMethod = ReSys.Shop.Core.Domain.Settings.PaymentMethods.PaymentMethod;
 
 namespace ReSys.Shop.Infrastructure.Payments.Gateways;
@@ -8,7 +12,7 @@ namespace ReSys.Shop.Infrastructure.Payments.Gateways;
 public sealed class PaymentWebhookProcessor(
     IApplicationDbContext dbContext,
     PaymentProcessorFactory factory,
-    IGatewayCredentialProvider credentialProvider)
+    ICredentialEncryptor encryptor)
 {
     public async Task<ErrorOr<Success>> ProcessWebhookAsync(DomainPaymentMethod.PaymentType type, string payload, string signature, CancellationToken ct = default)
     {
@@ -18,15 +22,12 @@ public sealed class PaymentWebhookProcessor(
         var processorResult = factory.GetProcessor(type);
         if (processorResult.IsError) return processorResult.Errors;
 
-        // Resolve webhook secret from encrypted config
-        if (method.GatewayConfigurationId.HasValue)
-        {
-            var secretResult = await GetWebhookSecretAsync(type, method.GatewayConfigurationId.Value, ct);
-            if (secretResult.IsError) return secretResult.Errors;
+        // Resolve webhook secret from private metadata
+        var secretResult = GetWebhookSecret(method);
+        if (secretResult.IsError) return secretResult.Errors;
 
-            var validation = processorResult.Value.ValidateWebhook(payload, signature, secretResult.Value);
-            if (validation.IsError) return validation.Errors;
-        }
+        var validation = processorResult.Value.ValidateWebhook(payload, signature, secretResult.Value);
+        if (validation.IsError) return validation.Errors;
 
         if (type == DomainPaymentMethod.PaymentType.Stripe)
         {
@@ -36,16 +37,19 @@ public sealed class PaymentWebhookProcessor(
         return Result.Success;
     }
 
-    private async Task<ErrorOr<string>> GetWebhookSecretAsync(DomainPaymentMethod.PaymentType type, Guid configId, CancellationToken ct)
+    private ErrorOr<string> GetWebhookSecret(DomainPaymentMethod method)
     {
-        if (type == DomainPaymentMethod.PaymentType.Stripe)
+        var encryptedSecret = method.GetPrivate("WebhookSecret")?.ToString();
+        if (string.IsNullOrEmpty(encryptedSecret)) return string.Empty;
+
+        try
         {
-            var settingsResult = await credentialProvider.GetSettingsAsync<StripeSettings>(configId, ct);
-            if (settingsResult.IsError) return settingsResult.Errors;
-            return settingsResult.Value.WebhookSecret;
+            return encryptor.Decrypt(encryptedSecret);
         }
-        
-        return string.Empty;
+        catch (Exception ex)
+        {
+            return Error.Failure("Payment.WebhookSecretDecryptionError", ex.Message);
+        }
     }
 
     private async Task<ErrorOr<Success>> ProcessStripeWebhookAsync(string payload, CancellationToken ct)
@@ -55,38 +59,43 @@ public sealed class PaymentWebhookProcessor(
         if (stripeEvent.Type == EventTypes.PaymentIntentSucceeded)
         {
             var intent = (PaymentIntent)stripeEvent.Data.Object;
-            var paymentIdStr = intent.Metadata.GetValueOrDefault("payment_id");
-            
-            if (Guid.TryParse(paymentIdStr, out var paymentId))
-            {
-                var payment = await dbContext.Set<Payment>()
-                    .FirstOrDefaultAsync(p => p.Id == paymentId, ct);
-
-                if (payment != null)
-                {
-                    payment.MarkAsCaptured(intent.Id);
-                    await dbContext.SaveChangesAsync(ct);
-                }
-            }
+            await UpdatePaymentStatusAsync(intent, p => p.MarkAsCaptured(intent.Id), ct);
+        }
+        else if (stripeEvent.Type == EventTypes.PaymentIntentAmountCapturableUpdated)
+        {
+            var intent = (PaymentIntent)stripeEvent.Data.Object;
+            await UpdatePaymentStatusAsync(intent, p => p.MarkAsAuthorized(intent.Id), ct);
         }
         else if (stripeEvent.Type == EventTypes.PaymentIntentPaymentFailed)
         {
             var intent = (PaymentIntent)stripeEvent.Data.Object;
-            var paymentIdStr = intent.Metadata.GetValueOrDefault("payment_id");
+            await UpdatePaymentStatusAsync(intent, p => p.MarkAsFailed(intent.LastPaymentError?.Message ?? "Payment failed", intent.LastPaymentError?.Code), ct);
+        }
+        else if (stripeEvent.Type == EventTypes.PaymentIntentCanceled)
+        {
+            var intent = (PaymentIntent)stripeEvent.Data.Object;
+            await UpdatePaymentStatusAsync(intent, p => p.Void(), ct);
+        }
 
-            if (Guid.TryParse(paymentIdStr, out var paymentId))
+        return Result.Success;
+    }
+
+    private async Task UpdatePaymentStatusAsync(PaymentIntent intent, Func<Payment, ErrorOr<object>> updateAction, CancellationToken ct)
+    {
+        var paymentIdStr = intent.Metadata.GetValueOrDefault("payment_id");
+        if (Guid.TryParse(paymentIdStr, out var paymentId))
+        {
+            var payment = await dbContext.Set<Payment>()
+                .FirstOrDefaultAsync(p => p.Id == paymentId, ct);
+
+            if (payment != null)
             {
-                var payment = await dbContext.Set<Payment>()
-                    .FirstOrDefaultAsync(p => p.Id == paymentId, ct);
-
-                if (payment != null)
+                var result = updateAction(payment);
+                if (!result.IsError)
                 {
-                    payment.MarkAsFailed(intent.LastPaymentError?.Message ?? "Payment failed", intent.LastPaymentError?.Code);
                     await dbContext.SaveChangesAsync(ct);
                 }
             }
         }
-
-        return Result.Success;
     }
 }

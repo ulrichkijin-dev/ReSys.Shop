@@ -72,38 +72,115 @@ public sealed class ProductImageConfiguration : IEntityTypeConfiguration<Product
 
         #region Vector Embedding Configuration
         
-        // Thesis Comparison Models
+        // Thesis Strategy Models
         
-        // 1. Efficient CNN (MobileNetV3)
-        builder.Property(propertyExpression: pi => pi.EmbeddingMobilenet)
-            .HasColumnType(typeName: "vector(576)")
-            .IsRequired(required: false)
-            .HasComment(comment: "EmbeddingMobilenet: Embedding vector for MobileNetV3 (576-dim).");
-
-        builder.HasIndex(indexExpression: pi => pi.EmbeddingMobilenet)
-            .HasDatabaseName(name: "ix_product_images_embedding_mobilenet_hnsw")
-            .HasMethod(method: "hnsw")
-            .HasOperators(operators: "vector_cosine_ops");
-
-        // 2. Scaled CNN (EfficientNet B0)
+        // 1. Production Baseline CNN (EfficientNet B0)
         builder.Property(propertyExpression: pi => pi.EmbeddingEfficientnet)
             .HasColumnType(typeName: "vector(1280)")
             .IsRequired(required: false)
             .HasComment(comment: "EmbeddingEfficientnet: Embedding vector for EfficientNet B0 (1280-dim).");
+
+        builder.Property(pi => pi.EmbeddingEfficientnetModel)
+            .HasMaxLength(50)
+            .IsRequired(false);
+
+        builder.Property(pi => pi.EmbeddingEfficientnetGeneratedAt)
+            .IsRequired(false);
+
+        builder.Property(pi => pi.EmbeddingEfficientnetChecksum)
+            .HasMaxLength(64)
+            .IsRequired(false);
 
         builder.HasIndex(indexExpression: pi => pi.EmbeddingEfficientnet)
             .HasDatabaseName(name: "ix_product_images_embedding_efficientnet_hnsw")
             .HasMethod(method: "hnsw")
             .HasOperators(operators: "vector_cosine_ops");
 
-        // 3. Transformer (CLIP ViT-B/32)
+        // 2. Modern CNN (ConvNeXt Tiny)
+        builder.Property(propertyExpression: pi => pi.EmbeddingConvnext)
+            .HasColumnType(typeName: "vector(768)")
+            .IsRequired(required: false)
+            .HasComment(comment: "EmbeddingConvnext: Embedding vector for ConvNeXt Tiny (768-dim).");
+
+        builder.Property(pi => pi.EmbeddingConvnextModel)
+            .HasMaxLength(50)
+            .IsRequired(false);
+
+        builder.Property(pi => pi.EmbeddingConvnextGeneratedAt)
+            .IsRequired(false);
+
+        builder.Property(pi => pi.EmbeddingConvnextChecksum)
+            .HasMaxLength(64)
+            .IsRequired(false);
+
+        builder.HasIndex(indexExpression: pi => pi.EmbeddingConvnext)
+            .HasDatabaseName(name: "ix_product_images_embedding_convnext_hnsw")
+            .HasMethod(method: "hnsw")
+            .HasOperators(operators: "vector_cosine_ops");
+
+        // 3. CLIP ViT-B/16 (General Transformer)
         builder.Property(propertyExpression: pi => pi.EmbeddingClip)
             .HasColumnType(typeName: "vector(512)")
             .IsRequired(required: false)
-            .HasComment(comment: "EmbeddingClip: Embedding vector for CLIP ViT-B/32 (512-dim).");
+            .HasComment(comment: "EmbeddingClip: Embedding vector for CLIP ViT-B/16 (512-dim).");
+
+        builder.Property(pi => pi.EmbeddingClipModel)
+            .HasMaxLength(50)
+            .IsRequired(false);
+
+        builder.Property(pi => pi.EmbeddingClipGeneratedAt)
+            .IsRequired(false);
+
+        builder.Property(pi => pi.EmbeddingClipChecksum)
+            .HasMaxLength(64)
+            .IsRequired(false);
 
         builder.HasIndex(indexExpression: pi => pi.EmbeddingClip)
             .HasDatabaseName(name: "ix_product_images_embedding_clip_hnsw")
+            .HasMethod(method: "hnsw")
+            .HasOperators(operators: "vector_cosine_ops");
+
+        // 4. Semantic Transformer (Fashion-CLIP)
+        builder.Property(propertyExpression: pi => pi.EmbeddingFclip)
+            .HasColumnType(typeName: "vector(512)")
+            .IsRequired(required: false)
+            .HasComment(comment: "EmbeddingFclip: Embedding vector for Fashion-CLIP (512-dim).");
+
+        builder.Property(pi => pi.EmbeddingFclipModel)
+            .HasMaxLength(50)
+            .IsRequired(false);
+
+        builder.Property(pi => pi.EmbeddingFclipGeneratedAt)
+            .IsRequired(false);
+
+        builder.Property(pi => pi.EmbeddingFclipChecksum)
+            .HasMaxLength(64)
+            .IsRequired(false);
+
+        builder.HasIndex(indexExpression: pi => pi.EmbeddingFclip)
+            .HasDatabaseName(name: "ix_product_images_embedding_fclip_hnsw")
+            .HasMethod(method: "hnsw")
+            .HasOperators(operators: "vector_cosine_ops");
+
+        // 5. Visual Structure Transformer (DINOv2 ViT-S/14)
+        builder.Property(propertyExpression: pi => pi.EmbeddingDino)
+            .HasColumnType(typeName: "vector(384)")
+            .IsRequired(required: false)
+            .HasComment(comment: "EmbeddingDino: Embedding vector for DINOv2 ViT-S/14 (384-dim).");
+
+        builder.Property(pi => pi.EmbeddingDinoModel)
+            .HasMaxLength(50)
+            .IsRequired(false);
+
+        builder.Property(pi => pi.EmbeddingDinoGeneratedAt)
+            .IsRequired(false);
+
+        builder.Property(pi => pi.EmbeddingDinoChecksum)
+            .HasMaxLength(64)
+            .IsRequired(false);
+
+        builder.HasIndex(indexExpression: pi => pi.EmbeddingDino)
+            .HasDatabaseName(name: "ix_product_images_embedding_dino_hnsw")
             .HasMethod(method: "hnsw")
             .HasOperators(operators: "vector_cosine_ops");
 

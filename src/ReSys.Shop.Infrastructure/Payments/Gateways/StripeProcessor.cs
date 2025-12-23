@@ -2,22 +2,32 @@ using Stripe;
 using ReSys.Shop.Core.Common.Domain.Shared;
 using ReSys.Shop.Core.Domain.Orders.Payments;
 using ReSys.Shop.Core.Domain.Orders.Payments.Gateways;
+using ReSys.Shop.Core.Common.Services.Security.Encryptors.Interfaces;
 using DomainPaymentMethod = ReSys.Shop.Core.Domain.Settings.PaymentMethods.PaymentMethod;
+using ReSys.Shop.Core.Common.Domain.Concerns;
 
 namespace ReSys.Shop.Infrastructure.Payments.Gateways;
 
-public sealed class StripeProcessor(IGatewayCredentialProvider credentialProvider) : IPaymentProcessor
+public sealed class StripeProcessor(ICredentialEncryptor encryptor) : IPaymentProcessor
 {
     public DomainPaymentMethod.PaymentType Type => DomainPaymentMethod.PaymentType.Stripe;
 
-    private async Task<ErrorOr<RequestOptions>> GetOptionsAsync(Guid? configId, CancellationToken ct)
+    private ErrorOr<RequestOptions> GetOptions(DomainPaymentMethod? method)
     {
-        if (!configId.HasValue) return Error.Validation("Gateway.ConfigRequired");
+        if (method == null) return Error.Validation("Payment.MethodMissing");
         
-        var settingsResult = await credentialProvider.GetSettingsAsync<StripeSettings>(configId.Value, ct);
-        if (settingsResult.IsError) return settingsResult.Errors;
+        var apiKey = method.GetPrivate("ApiKey")?.ToString();
+        if (string.IsNullOrEmpty(apiKey)) return Error.Validation("Stripe.ApiKeyMissing");
 
-        return new RequestOptions { ApiKey = settingsResult.Value.ApiKey };
+        try 
+        {
+            var decryptedApiKey = encryptor.Decrypt(apiKey);
+            return new RequestOptions { ApiKey = decryptedApiKey };
+        }
+        catch (Exception ex)
+        {
+            return Error.Failure("Stripe.DecryptionError", ex.Message);
+        }
     }
 
     public async Task<ErrorOr<PaymentAuthorizationResult>> CreateIntentAsync(
@@ -38,7 +48,7 @@ public sealed class StripeProcessor(IGatewayCredentialProvider credentialProvide
             }
         };
 
-        var requestOptionsResult = await GetOptionsAsync(payment.PaymentMethod?.GatewayConfigurationId, ct);
+        var requestOptionsResult = GetOptions(payment.PaymentMethod);
         if (requestOptionsResult.IsError) return requestOptionsResult.Errors;
 
         var requestOptions = requestOptionsResult.Value;
@@ -67,9 +77,7 @@ public sealed class StripeProcessor(IGatewayCredentialProvider credentialProvide
 
     public async Task<ErrorOr<Success>> CaptureAsync(Payment payment, string idempotencyKey, CancellationToken ct)
     {
-        if (payment.PaymentMethod == null) return Error.Validation("Payment.MethodMissing");
-        
-        var requestOptionsResult = await GetOptionsAsync(payment.PaymentMethod.GatewayConfigurationId, ct);
+        var requestOptionsResult = GetOptions(payment.PaymentMethod);
         if (requestOptionsResult.IsError) return requestOptionsResult.Errors;
 
         var requestOptions = requestOptionsResult.Value;
@@ -89,8 +97,6 @@ public sealed class StripeProcessor(IGatewayCredentialProvider credentialProvide
 
     public async Task<ErrorOr<Success>> RefundAsync(Payment payment, Money amount, string reason, string idempotencyKey, CancellationToken ct)
     {
-        if (payment.PaymentMethod == null) return Error.Validation("Payment.MethodMissing");
-
         var options = new RefundCreateOptions
         {
             PaymentIntent = payment.ReferenceTransactionId,
@@ -98,7 +104,7 @@ public sealed class StripeProcessor(IGatewayCredentialProvider credentialProvide
             Reason = MapRefundReason(reason)
         };
 
-        var requestOptionsResult = await GetOptionsAsync(payment.PaymentMethod.GatewayConfigurationId, ct);
+        var requestOptionsResult = GetOptions(payment.PaymentMethod);
         if (requestOptionsResult.IsError) return requestOptionsResult.Errors;
 
         var requestOptions = requestOptionsResult.Value;
@@ -118,9 +124,7 @@ public sealed class StripeProcessor(IGatewayCredentialProvider credentialProvide
 
     public async Task<ErrorOr<Success>> VoidAsync(Payment payment, string idempotencyKey, CancellationToken ct)
     {
-        if (payment.PaymentMethod == null) return Error.Validation("Payment.MethodMissing");
-
-        var requestOptionsResult = await GetOptionsAsync(payment.PaymentMethod.GatewayConfigurationId, ct);
+        var requestOptionsResult = GetOptions(payment.PaymentMethod);
         if (requestOptionsResult.IsError) return requestOptionsResult.Errors;
 
         var requestOptions = requestOptionsResult.Value;
@@ -153,7 +157,7 @@ public sealed class StripeProcessor(IGatewayCredentialProvider credentialProvide
 
     private static AuthorizationStatus MapStatus(string stripeStatus) => stripeStatus switch
     {
-        "succeeded" => AuthorizationStatus.Authorized,
+        "succeeded" => AuthorizationStatus.Captured,
         "requires_action" => AuthorizationStatus.RequiresAction,
         "requires_payment_method" => AuthorizationStatus.RequiresAction,
         "processing" => AuthorizationStatus.Pending,

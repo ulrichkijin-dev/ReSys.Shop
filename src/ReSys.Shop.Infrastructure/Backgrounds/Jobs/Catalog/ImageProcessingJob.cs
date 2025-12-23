@@ -29,10 +29,12 @@ public sealed class ImageProcessingJob : IJob
     {
         try
         {
-            // Find images that are missing embeddings for any of the 3 thesis models
-            // and are of type 'Search' (or 'Default' if we want to index everything, but Search is safer for now)
+            // Find images that are missing embeddings for any of the 4 strategic models
             var unprocessedImages = await _dbContext.Set<ProductImage>()
-                .Where(pi => (pi.EmbeddingMobilenet == null || pi.EmbeddingEfficientnet == null || pi.EmbeddingClip == null) 
+                .Where(pi => (pi.EmbeddingEfficientnet == null || 
+                              pi.EmbeddingConvnext == null || 
+                              pi.EmbeddingFclip == null || 
+                              pi.EmbeddingDino == null) 
                              && pi.Type == nameof(ProductImage.ProductImageType.Search))
                 .OrderBy(pi => pi.CreatedAt)
                 .Take(50) // Batch size
@@ -46,27 +48,12 @@ public sealed class ImageProcessingJob : IJob
             _logger.Information("Found {Count} images requiring embedding generation.", unprocessedImages.Count);
 
             var client = _httpClientFactory.CreateClient("ImageSearchService"); 
-            // Note: Ensure "ImageSearchService" is registered in DI with the correct BaseAddress (e.g., http://localhost:8000)
 
             foreach (var image in unprocessedImages)
             {
                 try
                 {
-                    // Call Python API for each missing model
-                    // Assuming the Python API has an endpoint like /extract/by-id/{id}?model={model}
-                    // Or a batch endpoint. For simplicity, we loop here or use the batch if available.
-                    
-                    // 1. MobileNet
-                    if (image.EmbeddingMobilenet == null)
-                    {
-                        var response = await client.GetFromJsonAsync<EmbeddingResponse>($"extract/by-id/{image.Id}?model=mobilenet_v3", context.CancellationToken);
-                        if (response?.Embedding != null)
-                        {
-                            image.SetEmbedding("mobilenet_v3", response.Embedding);
-                        }
-                    }
-
-                    // 2. EfficientNet
+                    // 1. EfficientNet B0
                     if (image.EmbeddingEfficientnet == null)
                     {
                         var response = await client.GetFromJsonAsync<EmbeddingResponse>($"extract/by-id/{image.Id}?model=efficientnet_b0", context.CancellationToken);
@@ -76,17 +63,33 @@ public sealed class ImageProcessingJob : IJob
                         }
                     }
 
-                    // 3. CLIP
-                    if (image.EmbeddingClip == null)
+                    // 2. ConvNeXt Tiny
+                    if (image.EmbeddingConvnext == null)
                     {
-                        var response = await client.GetFromJsonAsync<EmbeddingResponse>($"extract/by-id/{image.Id}?model=clip", context.CancellationToken);
+                        var response = await client.GetFromJsonAsync<EmbeddingResponse>($"extract/by-id/{image.Id}?model=convnext_tiny", context.CancellationToken);
                         if (response?.Embedding != null)
                         {
-                            if (response.Embedding.Length != 512)
-                            {
-                                throw new InvalidOperationException("Unexpected CLIP embedding size");
-                            }
-                            image.SetEmbedding("clip", response.Embedding);
+                            image.SetEmbedding("convnext_tiny", response.Embedding);
+                        }
+                    }
+
+                    // 3. Fashion-CLIP
+                    if (image.EmbeddingFclip == null)
+                    {
+                        var response = await client.GetFromJsonAsync<EmbeddingResponse>($"extract/by-id/{image.Id}?model=fashion_clip", context.CancellationToken);
+                        if (response?.Embedding != null)
+                        {
+                            image.SetEmbedding("fashion_clip", response.Embedding);
+                        }
+                    }
+
+                    // 4. DINO ViT-S/16
+                    if (image.EmbeddingDino == null)
+                    {
+                        var response = await client.GetFromJsonAsync<EmbeddingResponse>($"extract/by-id/{image.Id}?model=dino_vits16", context.CancellationToken);
+                        if (response?.Embedding != null)
+                        {
+                            image.SetEmbedding("dino_vits16", response.Embedding);
                         }
                     }
                 }

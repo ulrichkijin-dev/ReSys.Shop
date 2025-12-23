@@ -39,6 +39,7 @@ public class SettingConfiguration : IEntityTypeConfiguration<Setting>
         builder.HasIndex(s => s.Key)
             .IsUnique();
 
+        builder.ConfigureMetadata();
         builder.ConfigureAuditable();
         #region Concurrency
         builder.ConfigureVersion();

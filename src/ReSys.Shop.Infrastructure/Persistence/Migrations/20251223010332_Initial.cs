@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Pgvector;
@@ -112,6 +111,7 @@ namespace ReSys.Shop.Infrastructure.Persistence.Migrations
                     public_metadata = table.Column<string>(type: "jsonb", nullable: true, comment: "Public key-value metadata for the entity, stored as JSON."),
                     private_metadata = table.Column<string>(type: "jsonb", nullable: true, comment: "Private key-value metadata for the entity, stored as JSON."),
                     deleted_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true, comment: "DeletedAt: The timestamp when the payment method was soft deleted (null if not deleted)."),
+                    deleted_by = table.Column<string>(type: "text", nullable: true),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false, comment: "CreatedAt: Timestamp of when the record was created."),
                     created_by = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true, comment: "CreatedBy: User who initially created this record."),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true, comment: "UpdatedAt: Timestamp of when the record was last updated."),
@@ -251,6 +251,8 @@ namespace ReSys.Shop.Infrastructure.Persistence.Migrations
                     is_default = table.Column<bool>(type: "boolean", nullable: false),
                     priority = table.Column<int>(type: "integer", nullable: false),
                     is_system_role = table.Column<bool>(type: "boolean", nullable: false),
+                    public_metadata = table.Column<string>(type: "jsonb", nullable: true, comment: "Public key-value metadata for the entity, stored as JSON."),
+                    private_metadata = table.Column<string>(type: "jsonb", nullable: true, comment: "Private key-value metadata for the entity, stored as JSON."),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false, comment: "CreatedAt: Timestamp of when the record was created."),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true, comment: "UpdatedAt: Timestamp of when the record was last updated."),
                     created_by = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true, comment: "CreatedBy: User who initially created this record."),
@@ -266,7 +268,7 @@ namespace ReSys.Shop.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "settings",
+                name: "Settings",
                 schema: "eshopdb",
                 columns: table => new
                 {
@@ -275,12 +277,14 @@ namespace ReSys.Shop.Infrastructure.Persistence.Migrations
                     value = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
                     description = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
                     default_value = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
-                    value_type = table.Column<int>(type: "integer", nullable: false),
-                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<string>(type: "text", nullable: true),
-                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    updated_by = table.Column<string>(type: "text", nullable: true),
-                    version = table.Column<long>(type: "bigint", nullable: false)
+                    value_type = table.Column<string>(type: "text", nullable: false),
+                    public_metadata = table.Column<string>(type: "jsonb", nullable: true, comment: "Public key-value metadata for the entity, stored as JSON."),
+                    private_metadata = table.Column<string>(type: "jsonb", nullable: true, comment: "Private key-value metadata for the entity, stored as JSON."),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false, comment: "CreatedAt: Timestamp of when the record was created."),
+                    created_by = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true, comment: "CreatedBy: User who initially created this record."),
+                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true, comment: "UpdatedAt: Timestamp of when the record was last updated."),
+                    updated_by = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true, comment: "UpdatedBy: User who last updated this record."),
+                    version = table.Column<long>(type: "bigint", rowVersion: true, nullable: false, defaultValue: 0L, comment: "Version: Optimistic concurrency token, incremented on updates.")
                 },
                 constraints: table =>
                 {
@@ -307,6 +311,9 @@ namespace ReSys.Shop.Infrastructure.Persistence.Migrations
                     public_metadata = table.Column<string>(type: "jsonb", nullable: true, comment: "Public key-value metadata for the entity, stored as JSON."),
                     private_metadata = table.Column<string>(type: "jsonb", nullable: true, comment: "Private key-value metadata for the entity, stored as JSON."),
                     display_on = table.Column<int>(type: "integer", nullable: false),
+                    is_deleted = table.Column<bool>(type: "boolean", nullable: false),
+                    deleted_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    deleted_by = table.Column<string>(type: "text", nullable: true),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false, comment: "CreatedAt: Timestamp of when the record was created."),
                     created_by = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true, comment: "CreatedBy: User who initially created this record."),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true, comment: "UpdatedAt: Timestamp of when the record was last updated."),
@@ -352,6 +359,8 @@ namespace ReSys.Shop.Infrastructure.Persistence.Migrations
                     last_name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true, comment: "LastName: The user's last name."),
                     date_of_birth = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true, comment: "DateOfBirth: The user's date of birth."),
                     profile_image_path = table.Column<string>(type: "character varying(2048)", maxLength: 2048, nullable: true, comment: "ProfileImagePath: The path to the user's profile image."),
+                    public_metadata = table.Column<string>(type: "jsonb", nullable: true, comment: "Public key-value metadata for the entity, stored as JSON."),
+                    private_metadata = table.Column<string>(type: "jsonb", nullable: true, comment: "Private key-value metadata for the entity, stored as JSON."),
                     last_sign_in_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true, comment: "LastSignInAt: The timestamp of the user's last sign-in."),
                     last_sign_in_ip = table.Column<string>(type: "character varying(15)", maxLength: 15, nullable: true, comment: "LastSignInIp: The IP address from which the user last signed in."),
                     current_sign_in_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true, comment: "CurrentSignInAt: The timestamp of the user's current sign-in."),
@@ -718,46 +727,6 @@ namespace ReSys.Shop.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "payment_sources",
-                schema: "eshopdb",
-                columns: table => new
-                {
-                    id = table.Column<Guid>(type: "uuid", nullable: false, comment: "Id: Unique identifier for the payment source. Value generated never."),
-                    user_id = table.Column<string>(type: "text", nullable: false, comment: "UserId: Foreign key to the associated ApplicationUser."),
-                    payment_method_id = table.Column<Guid>(type: "uuid", nullable: false, comment: "PaymentMethodId: Foreign key to the associated PaymentMethod."),
-                    type = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false, comment: "Type: The type of payment source (e.g., 'CreditCard', 'PayPal')."),
-                    last4 = table.Column<string>(type: "character varying(4)", maxLength: 4, nullable: true, comment: "Last4: The last four digits of the credit card number, if applicable."),
-                    brand = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true, comment: "Brand: The brand of the credit card (e.g., 'Visa', 'MasterCard')."),
-                    expiration_month = table.Column<int>(type: "integer", nullable: true, comment: "ExpirationMonth: The expiration month of the credit card."),
-                    expiration_year = table.Column<int>(type: "integer", nullable: true, comment: "ExpirationYear: The expiration year of the credit card."),
-                    is_default = table.Column<bool>(type: "boolean", nullable: false, comment: "IsDefault: Indicates if this is the user's default payment source."),
-                    public_metadata = table.Column<string>(type: "jsonb", nullable: true, comment: "Public key-value metadata for the entity, stored as JSON."),
-                    private_metadata = table.Column<string>(type: "jsonb", nullable: true, comment: "Private key-value metadata for the entity, stored as JSON."),
-                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false, comment: "CreatedAt: Timestamp of when the record was created."),
-                    created_by = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true, comment: "CreatedBy: User who initially created this record."),
-                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true, comment: "UpdatedAt: Timestamp of when the record was last updated."),
-                    updated_by = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true, comment: "UpdatedBy: User who last updated this record.")
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("pk_payment_sources", x => x.id);
-                    table.ForeignKey(
-                        name: "fk_payment_sources_payment_methods_payment_method_id",
-                        column: x => x.payment_method_id,
-                        principalSchema: "eshopdb",
-                        principalTable: "payment_methods",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "fk_payment_sources_users_user_id",
-                        column: x => x.user_id,
-                        principalSchema: "eshopdb",
-                        principalTable: "users",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "refresh_tokens",
                 schema: "eshopdb",
                 columns: table => new
@@ -802,7 +771,7 @@ namespace ReSys.Shop.Infrastructure.Persistence.Migrations
                     rating = table.Column<int>(type: "integer", nullable: false, comment: "Rating: The star rating given by the user (e.g., 1-5)."),
                     title = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true, comment: "Title: A short title for the review."),
                     comment = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true, comment: "Comment: The detailed review text provided by the user."),
-                    status = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false, comment: "Status: The current moderation status of the review (e.g., Pending, Approved, Rejected)."),
+                    status = table.Column<string>(type: "text", nullable: false, comment: "Status: The current moderation status of the review (e.g., Pending, Approved, Rejected)."),
                     moderated_by = table.Column<string>(type: "text", nullable: true),
                     moderated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     moderation_notes = table.Column<string>(type: "text", nullable: true),
@@ -810,10 +779,10 @@ namespace ReSys.Shop.Infrastructure.Persistence.Migrations
                     not_helpful_count = table.Column<int>(type: "integer", nullable: false),
                     is_verified_purchase = table.Column<bool>(type: "boolean", nullable: false),
                     order_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false, comment: "CreatedAt: Timestamp of when the record was created."),
-                    created_by = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true, comment: "CreatedBy: User who initially created this record."),
-                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true, comment: "UpdatedAt: Timestamp of when the record was last updated."),
-                    updated_by = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true, comment: "UpdatedBy: User who last updated this record.")
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    created_by = table.Column<string>(type: "text", nullable: true),
+                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    updated_by = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1081,15 +1050,22 @@ namespace ReSys.Shop.Infrastructure.Persistence.Migrations
                     width = table.Column<int>(type: "integer", nullable: true, comment: "Width: Image width in pixels."),
                     height = table.Column<int>(type: "integer", nullable: true, comment: "Height: Image height in pixels."),
                     dimensions_unit = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: true, comment: "DimensionsUnit: Unit of measurement."),
-                    embedding_open_clip = table.Column<Vector>(type: "vector(1024)", nullable: true, comment: "EmbeddingOpenCLIP: 1024-dimensional OpenCLIP vector for visual similarity search."),
-                    embedding_open_clip_model = table.Column<string>(type: "text", nullable: true),
-                    embedding_open_clip_generated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    embedding_dino_v2 = table.Column<Vector>(type: "vector(1024)", nullable: true, comment: "EmbeddingDinoV2: Embedding vector generated by DINOv2 model for visual similarity search."),
-                    embedding_dino_v2model = table.Column<string>(type: "text", nullable: true),
-                    embedding_dino_v2generated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    embedding_blip2 = table.Column<Vector>(type: "vector(768)", nullable: true, comment: "EmbeddingBLIP2: Embedding vector generated by BLIP-2 model for visual similarity search."),
-                    embedding_blip2model = table.Column<string>(type: "text", nullable: true),
-                    embedding_blip2generated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    embedding_efficientnet = table.Column<Vector>(type: "vector(1280)", nullable: true, comment: "EmbeddingEfficientnet: Embedding vector for EfficientNet B0 (1280-dim)."),
+                    embedding_efficientnet_model = table.Column<string>(type: "text", nullable: true),
+                    embedding_efficientnet_generated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    embedding_efficientnet_checksum = table.Column<string>(type: "text", nullable: true),
+                    embedding_convnext = table.Column<Vector>(type: "vector(768)", nullable: true, comment: "EmbeddingConvnext: Embedding vector for ConvNeXt Tiny (768-dim)."),
+                    embedding_convnext_model = table.Column<string>(type: "text", nullable: true),
+                    embedding_convnext_generated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    embedding_convnext_checksum = table.Column<string>(type: "text", nullable: true),
+                    embedding_fclip = table.Column<Vector>(type: "vector(512)", nullable: true, comment: "EmbeddingFclip: Embedding vector for Fashion-CLIP (512-dim)."),
+                    embedding_fclip_model = table.Column<string>(type: "text", nullable: true),
+                    embedding_fclip_generated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    embedding_fclip_checksum = table.Column<string>(type: "text", nullable: true),
+                    embedding_dino = table.Column<Vector>(type: "vector(384)", nullable: true, comment: "EmbeddingDino: Embedding vector for DINO ViT-S/16 (384-dim)."),
+                    embedding_dino_model = table.Column<string>(type: "text", nullable: true),
+                    embedding_dino_generated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    embedding_dino_checksum = table.Column<string>(type: "text", nullable: true),
                     product_id = table.Column<Guid>(type: "uuid", nullable: true, comment: "ProductId: Foreign key to Product."),
                     variant_id = table.Column<Guid>(type: "uuid", nullable: true, comment: "VariantId: Foreign key to Variant."),
                     type = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false, comment: "Type: Image type (Default, Thumbnail, Gallery)."),
@@ -1428,10 +1404,10 @@ namespace ReSys.Shop.Infrastructure.Persistence.Migrations
                     number = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false, comment: "Number: Auto-generated transfer number for reference."),
                     reference = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true, comment: "Reference: Optional reference code (e.g., purchase order number)."),
                     state = table.Column<int>(type: "integer", nullable: false, comment: "The current state of the stock transfer (e.g., Pending, Finalized)."),
-                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false, comment: "CreatedAt: Timestamp of when the record was created."),
-                    created_by = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true, comment: "CreatedBy: User who initially created this record."),
-                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true, comment: "UpdatedAt: Timestamp of when the record was last updated."),
-                    updated_by = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true, comment: "UpdatedBy: User who last updated this record."),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    created_by = table.Column<string>(type: "text", nullable: true),
+                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    updated_by = table.Column<string>(type: "text", nullable: true),
                     version = table.Column<long>(type: "bigint", nullable: false),
                     row_version = table.Column<byte[]>(type: "bytea", rowVersion: true, nullable: true)
                 },
@@ -1540,7 +1516,7 @@ namespace ReSys.Shop.Infrastructure.Persistence.Migrations
                     from_state = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     to_state = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
                     triggered_by = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    context = table.Column<IDictionary<string, object>>(type: "jsonb", nullable: true),
+                    context = table.Column<string>(type: "jsonb", nullable: true),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false, comment: "CreatedAt: Timestamp of when the record was created."),
                     created_by = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true, comment: "CreatedBy: User who initially created this record."),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true, comment: "UpdatedAt: Timestamp of when the record was last updated."),
@@ -1566,7 +1542,7 @@ namespace ReSys.Shop.Infrastructure.Persistence.Migrations
                     id = table.Column<Guid>(type: "uuid", nullable: false, comment: "Id: Unique identifier for the payment. Value generated never."),
                     order_id = table.Column<Guid>(type: "uuid", nullable: false, comment: "OrderId: Foreign key to the associated Order."),
                     payment_method_id = table.Column<Guid>(type: "uuid", nullable: true, comment: "PaymentMethodId: Foreign key to the associated PaymentMethod."),
-                    amount_cents = table.Column<decimal>(type: "numeric", nullable: false, comment: "AmountCents: The payment amount in cents."),
+                    amount_cents = table.Column<long>(type: "bigint", nullable: false, comment: "AmountCents: The payment amount in cents."),
                     currency = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false, defaultValue: "USD", comment: "Currency: The currency of the payment."),
                     state = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false, comment: "State: Current state of the payment (e.g., Pending, Completed)."),
                     payment_method_type = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true, comment: "PaymentMethodType: The type of payment method used."),
@@ -1578,6 +1554,9 @@ namespace ReSys.Shop.Infrastructure.Persistence.Migrations
                     voided_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true, comment: "VoidedAt: Timestamp when the payment was voided."),
                     failure_reason = table.Column<string>(type: "character varying(5000)", maxLength: 5000, nullable: true, comment: "FailureReason: Reason for payment failure."),
                     idempotency_key = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true, comment: "IdempotencyKey: Key for idempotent payment processing."),
+                    refunded_amount_cents = table.Column<long>(type: "bigint", nullable: false),
+                    public_metadata = table.Column<string>(type: "jsonb", nullable: true, comment: "Public key-value metadata for the entity, stored as JSON."),
+                    private_metadata = table.Column<string>(type: "jsonb", nullable: true, comment: "Private key-value metadata for the entity, stored as JSON."),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false, comment: "CreatedAt: Timestamp of when the record was created."),
                     created_by = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true, comment: "CreatedBy: User who initially created this record."),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true, comment: "UpdatedAt: Timestamp of when the record was last updated."),
@@ -2073,30 +2052,6 @@ namespace ReSys.Shop.Infrastructure.Persistence.Migrations
                 column: "position");
 
             migrationBuilder.CreateIndex(
-                name: "ix_payment_sources_created_by",
-                schema: "eshopdb",
-                table: "payment_sources",
-                column: "created_by");
-
-            migrationBuilder.CreateIndex(
-                name: "ix_payment_sources_is_default",
-                schema: "eshopdb",
-                table: "payment_sources",
-                column: "is_default");
-
-            migrationBuilder.CreateIndex(
-                name: "ix_payment_sources_payment_method_id",
-                schema: "eshopdb",
-                table: "payment_sources",
-                column: "payment_method_id");
-
-            migrationBuilder.CreateIndex(
-                name: "ix_payment_sources_user_id",
-                schema: "eshopdb",
-                table: "payment_sources",
-                column: "user_id");
-
-            migrationBuilder.CreateIndex(
                 name: "ix_payments_created_by",
                 schema: "eshopdb",
                 table: "payments",
@@ -2177,26 +2132,34 @@ namespace ReSys.Shop.Infrastructure.Persistence.Migrations
                 column: "created_by");
 
             migrationBuilder.CreateIndex(
-                name: "ix_product_images_embedding_blip2_hnsw",
+                name: "ix_product_images_embedding_convnext_hnsw",
                 schema: "eshopdb",
                 table: "product_images",
-                column: "embedding_blip2")
+                column: "embedding_convnext")
                 .Annotation("Npgsql:IndexMethod", "hnsw")
                 .Annotation("Npgsql:IndexOperators", new[] { "vector_cosine_ops" });
 
             migrationBuilder.CreateIndex(
-                name: "ix_product_images_embedding_dinov2_hnsw",
+                name: "ix_product_images_embedding_dino_hnsw",
                 schema: "eshopdb",
                 table: "product_images",
-                column: "embedding_dino_v2")
+                column: "embedding_dino")
                 .Annotation("Npgsql:IndexMethod", "hnsw")
                 .Annotation("Npgsql:IndexOperators", new[] { "vector_cosine_ops" });
 
             migrationBuilder.CreateIndex(
-                name: "ix_product_images_embedding_openclip_hnsw",
+                name: "ix_product_images_embedding_efficientnet_hnsw",
                 schema: "eshopdb",
                 table: "product_images",
-                column: "embedding_open_clip")
+                column: "embedding_efficientnet")
+                .Annotation("Npgsql:IndexMethod", "hnsw")
+                .Annotation("Npgsql:IndexOperators", new[] { "vector_cosine_ops" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_product_images_embedding_fclip_hnsw",
+                schema: "eshopdb",
+                table: "product_images",
+                column: "embedding_fclip")
                 .Annotation("Npgsql:IndexMethod", "hnsw")
                 .Annotation("Npgsql:IndexOperators", new[] { "vector_cosine_ops" });
 
@@ -2461,12 +2424,6 @@ namespace ReSys.Shop.Infrastructure.Persistence.Migrations
                 column: "user_id");
 
             migrationBuilder.CreateIndex(
-                name: "ix_reviews_created_by",
-                schema: "eshopdb",
-                table: "reviews",
-                column: "created_by");
-
-            migrationBuilder.CreateIndex(
                 name: "ix_reviews_product_id",
                 schema: "eshopdb",
                 table: "reviews",
@@ -2528,9 +2485,15 @@ namespace ReSys.Shop.Infrastructure.Persistence.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "ix_settings_created_by",
+                schema: "eshopdb",
+                table: "Settings",
+                column: "created_by");
+
+            migrationBuilder.CreateIndex(
                 name: "ix_settings_key",
                 schema: "eshopdb",
-                table: "settings",
+                table: "Settings",
                 column: "key",
                 unique: true);
 
@@ -2729,12 +2692,6 @@ namespace ReSys.Shop.Infrastructure.Persistence.Migrations
                 schema: "eshopdb",
                 table: "stock_transfers",
                 column: "created_at");
-
-            migrationBuilder.CreateIndex(
-                name: "ix_stock_transfers_created_by",
-                schema: "eshopdb",
-                table: "stock_transfers",
-                column: "created_by");
 
             migrationBuilder.CreateIndex(
                 name: "ix_stock_transfers_destination_location_id",
@@ -3006,10 +2963,6 @@ namespace ReSys.Shop.Infrastructure.Persistence.Migrations
                 schema: "eshopdb");
 
             migrationBuilder.DropTable(
-                name: "payment_sources",
-                schema: "eshopdb");
-
-            migrationBuilder.DropTable(
                 name: "payments",
                 schema: "eshopdb");
 
@@ -3062,7 +3015,7 @@ namespace ReSys.Shop.Infrastructure.Persistence.Migrations
                 schema: "eshopdb");
 
             migrationBuilder.DropTable(
-                name: "settings",
+                name: "Settings",
                 schema: "eshopdb");
 
             migrationBuilder.DropTable(

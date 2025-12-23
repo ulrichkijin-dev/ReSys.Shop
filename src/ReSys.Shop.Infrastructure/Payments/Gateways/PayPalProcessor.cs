@@ -1,12 +1,15 @@
 using ReSys.Shop.Core.Common.Domain.Shared;
 using ReSys.Shop.Core.Domain.Orders.Payments;
 using ReSys.Shop.Core.Domain.Orders.Payments.Gateways;
+using ReSys.Shop.Core.Common.Services.Security.Encryptors.Interfaces;
 using DomainPaymentMethod = ReSys.Shop.Core.Domain.Settings.PaymentMethods.PaymentMethod;
 
 namespace ReSys.Shop.Infrastructure.Payments.Gateways;
 
-public sealed class PayPalProcessor : IPaymentProcessor
+public sealed class PayPalProcessor(ICredentialEncryptor encryptor) : IPaymentProcessor
 {
+    private readonly ICredentialEncryptor _encryptor = encryptor;
+
     public DomainPaymentMethod.PaymentType Type => DomainPaymentMethod.PaymentType.PayPal;
 
     public async Task<ErrorOr<PaymentAuthorizationResult>> CreateIntentAsync(

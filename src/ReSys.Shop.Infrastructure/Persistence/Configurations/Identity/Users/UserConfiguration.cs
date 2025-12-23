@@ -105,6 +105,7 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         #endregion
 
         #region Auditable Properties
+        builder.ConfigureMetadata();
         builder.ConfigureAuditable();
         #endregion
 

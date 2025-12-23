@@ -1,7 +1,5 @@
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-
 using ReSys.Shop.Core.Common.Constants;
-using ReSys.Shop.Core.Common.Domain.Concerns;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using ReSys.Shop.Core.Domain.Catalog.Products.Reviews;
 
 namespace ReSys.Shop.Infrastructure.Persistence.Configurations.Catalog.Products.Reviews;
@@ -9,7 +7,7 @@ namespace ReSys.Shop.Infrastructure.Persistence.Configurations.Catalog.Products.
 /// <summary>
 /// Configures the database mapping for the <see cref="Review"/> entity.
 /// </summary>
-public sealed class ReviewConfiguration : IEntityTypeConfiguration<Review>
+public class ReviewConfiguration : IEntityTypeConfiguration<Review>
 {
     /// <summary>
     /// Configures the entity of type <see cref="Review"/>.
@@ -17,27 +15,12 @@ public sealed class ReviewConfiguration : IEntityTypeConfiguration<Review>
     /// <param name="builder">The builder to be used to configure the entity type.</param>
     public void Configure(EntityTypeBuilder<Review> builder)
     {
-        #region Table
-
         builder.ToTable(name: Schema.Reviews);
-        #endregion
-
-        #region Primary Key
 
         builder.HasKey(keyExpression: r => r.Id);
-        #endregion
-
-        #region Indexes
-
-        builder.HasIndex(indexExpression: r => r.ProductId);
-        builder.HasIndex(indexExpression: r => r.UserId);
-        builder.HasIndex(indexExpression: r => r.Status);
-        #endregion
-
-        #region Properties
 
         builder.Property(propertyExpression: r => r.Id)
-            .HasColumnName(name: "id")
+            .ValueGeneratedNever()
             .HasComment(comment: "Id: Unique identifier for the review. Value generated never.");
 
         builder.Property(propertyExpression: r => r.ProductId)
@@ -63,15 +46,9 @@ public sealed class ReviewConfiguration : IEntityTypeConfiguration<Review>
             .HasComment(comment: "Comment: The detailed review text provided by the user.");
 
         builder.Property(propertyExpression: r => r.Status)
-            .HasConversion<string>()
-            .HasMaxLength(maxLength: 50)
             .IsRequired()
+            .HasConversion<string>() // Store enum as string
             .HasComment(comment: "Status: The current moderation status of the review (e.g., Pending, Approved, Rejected).");
-
-        builder.ConfigureAuditable();
-        #endregion
-
-        #region Relationships
 
         builder.HasOne(navigationExpression: r => r.Product)
             .WithMany(navigationExpression: p => p.Reviews)
@@ -79,9 +56,11 @@ public sealed class ReviewConfiguration : IEntityTypeConfiguration<Review>
             .OnDelete(deleteBehavior: DeleteBehavior.Cascade);
 
         builder.HasOne(navigationExpression: r => r.User)
-            .WithMany(navigationExpression: m => m.Reviews)
+            .WithMany(u => u.Reviews)
             .HasForeignKey(foreignKeyExpression: r => r.UserId)
             .OnDelete(deleteBehavior: DeleteBehavior.Cascade);
-        #endregion
+        builder.HasIndex(indexExpression: r => r.ProductId);
+        builder.HasIndex(indexExpression: r => r.UserId);
+        builder.HasIndex(indexExpression: r => r.Status);
     }
 }

@@ -181,7 +181,6 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Ignore(propertyExpression: o => o.PromotionTotalCents);
         builder.Ignore(propertyExpression: o => o.PromotionTotal);
         builder.Ignore(propertyExpression: o => o.HasPromotion);
-        builder.Ignore(propertyExpression: o => o.IsFullyDigital);
         #endregion
 
         #region Concurrency

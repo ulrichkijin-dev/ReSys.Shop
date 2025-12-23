@@ -43,6 +43,7 @@ public sealed class RoleConfigurations : IEntityTypeConfiguration<Role>
         builder.Property(propertyExpression: e => e.IsSystemRole)
             .IsRequired();
 
+        builder.ConfigureMetadata();
         builder.ConfigureAuditable();
         builder.ConfigureVersion();
         #endregion

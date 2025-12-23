@@ -1,5 +1,4 @@
 global using ErrorOr;
 global using Microsoft.EntityFrameworkCore;
-global using ReSys.Shop.Core.Common.Domain.Mediators;
 global using ReSys.Shop.Core.Common.Services.Persistence.Interfaces;
 global using ReSys.Shop.Core.Common.Shared;
