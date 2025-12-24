@@ -1,70 +1,106 @@
 // Chapter 2: Literature Review
-= LITERATURE REVIEW
+= BACKGROUND AND RELATED WORK
 
-== Overview of Student Management Systems
+This chapter establishes the theoretical and technical foundation for the research. It provides a comprehensive analysis of the evolution of e-commerce information retrieval, examines the paradigm shift in computer vision from Convolutional Neural Networks to Vision Transformers, and investigates modern strategies for high-dimensional data persistence within relational ecosystems.
 
-Student Management Systems (SMS) are comprehensive software platforms designed to manage student data, academic records, and administrative processes within educational institutions. Modern SMS often leverage web technologies to provide accessible and efficient services to students, faculty, and administrators.
+== Evolution of Information Retrieval in E-commerce
 
-=== Evolution of SMS
+The mechanism of product discovery in e-commerce has evolved through distinct technological phases, reflecting the increasing complexity of consumer data.
 
-Early SMS were typically desktop-based applications focused on basic record-keeping. With the advent of the internet, web-based SMS emerged, offering remote access and improved data sharing capabilities. Cloud-based and mobile-responsive systems represent the latest advancements, emphasizing scalability, accessibility, and user experience.
+=== Catalog-based Navigation and Taxonomies
 
-== Key Technologies for Web Applications
+Early e-commerce systems relied on rigid hierarchical structures. Users navigated through predefined categories (e.g., "Men > Apparel > Jackets") to locate items. While intuitive for small catalogs, this approach fails as inventory scales into the millions or when products possess multi-faceted attributes that do not fit uniquely into a single taxonomic node.
 
-=== Frontend Technologies
+=== Keyword-based Search (BM25 and TF-IDF)
 
-Modern web frontend development often relies on JavaScript frameworks to create dynamic and interactive user interfaces.
+The integration of full-text search engines introduced keyword-based retrieval. Algorithms such as **BM25** rank products based on the probabilistic relevance of search terms within document metadata.
+- **Mechanism:** It calculates a score based on Term Frequency (how often a word appears) and Inverse Document Frequency (how rare the word is across the dataset).
+- **Limitation:** This model suffers from the **"Vocabulary Mismatch Problem."** Users often lack the domain-specific terminology (e.g., "peplum," "brogueing") to describe visual styles, leading to search failure for visually complex items like fashion.
 
-==== React.js
+=== Neural and Visual Search
 
-React.js is a JavaScript library for building user interfaces, developed by Facebook. Its component-based architecture facilitates the creation of reusable UI elements, promoting modularity and maintainability. React's virtual DOM enhances performance by minimizing direct manipulation of the browser's DOM.
+The current paradigm leverages Deep Learning to map both images and text into a shared latent space. By converting unstructured data into dense vectors (embeddings), systems can measure similarity based on mathematical distance (e.g., Cosine Similarity) rather than literal keyword matching. This enables "Discovery-oriented" commerce, where retrieval is guided by visual intent and semantic context @radford2021learning.
 
-==== Vue.js
+== Deep Learning for Computer Vision
 
-Vue.js is a progressive JavaScript framework for building user interfaces. It is designed to be incrementally adoptable, meaning it can be easily integrated into existing projects. Vue is known for its simplicity and ease of learning, offering a flexible and performant solution for frontend development.
+Visual search retrieval accuracy is fundamentally determined by the feature extraction capabilities of the underlying neural network architecture.
 
-=== Backend Technologies
+#figure(
+  image("../assets/images/cnn_vs_vit_architecture.png", width: 90%),
+  caption: [Comparison of CNN (Sliding Window) vs. Vision Transformer (Patch Attention) Architectures],
+)
 
-Backend technologies are responsible for server-side logic, database interaction, and API management.
+=== Convolutional Neural Networks (CNNs)
 
-==== Node.js with Express.js
+For over a decade, CNNs have served as the backbone of computer vision.
+*   **Fine-Grained Mechanism:** CNNs operate by sliding small, learnable filters (kernels) over the input image. In the initial layers, these kernels detect low-level features like vertical edges or color gradients. As data propagates through deeper layers, these features are aggregated into complex hierarchies (e.g., textures $\rightarrow$ shapes $\rightarrow$ objects).
+*   **Inductive Bias:** CNNs possess strong inductive biases towards **translation invariance** (an object is recognized regardless of its position) and **locality** (pixels are processed in context of their neighbors).
+*   **EfficientNet:** Introduced by Tan & Le (2019), EfficientNet revolutionized CNN scaling. Instead of arbitrarily widening or deepening the network, it uses a **Compound Scaling** method that uniformly scales network width, depth, and resolution using a fixed set of coefficients. This results in models that achieve state-of-the-art accuracy with significantly lower latency @tan2019efficientnet.
 
-Node.js is a JavaScript runtime built on Chrome's V8 JavaScript engine. It allows developers to use JavaScript for server-side programming, enabling a full-stack JavaScript development approach. Express.js is a minimal and flexible Node.js web application framework that provides a robust set of features for web and mobile applications.
+#figure(
+  image("../assets/images/efficientnet_scaling.png", width: 80%),
+  caption: [EfficientNet Compound Scaling Method: Balancing Width, Depth, and Resolution @tan2019efficientnet],
+)
 
-==== Python with FastAPI
+=== Vision Transformers (ViTs)
 
-FastAPI is a modern, fast (high-performance) web framework for building APIs with Python 3.7+ based on standard Python type hints. It is known for its high performance, automatic interactive API documentation (Swagger UI and ReDoc), and ease of use.
+Inspired by the success of the Transformer architecture in Natural Language Processing, Vision Transformers (ViTs) treat images as sequences.
+*   **Fine-Grained Mechanism:** The input image is split into fixed-size patches (e.g., $16 \times 16$ pixels). Each patch is linearly projected into an embedding and enriched with positional information.
+*   **Self-Attention:** Unlike CNNs, which look at local neighbors, ViTs utilize **Multi-Head Self-Attention (MSA)**. This mechanism allows every patch to attend to every other patch in the image simultaneously. It computes a weighted sum of values based on the compatibility of query and key vectors ($Attention(Q, K, V) = softmax(\frac{QK^T}{\sqrt{d_k}})V$), enabling the model to capture long-range global dependencies @vaswani2017attention.
 
-=== Database Technologies
+==== Fashion-CLIP (Semantic Specialist)
 
-Databases are crucial for storing and managing the vast amounts of data generated by SMS.
+Fashion-CLIP is a domain-adaptive variant of OpenAI's CLIP.
+*   **Contrastive Learning:** It is trained on millions of (image, text) pairs using a contrastive loss function. The model learns to maximize the cosine similarity between the image embedding of a "red dress" and the text embedding of "red dress," while minimizing similarity to unrelated text.
+*   **Utility:** This alignment aligns visual features with industry-specific terminology, making it the optimal choice for **Semantic Retrieval** and recommendations.
 
-==== MongoDB
+#figure(
+  image("../assets/images/fashion_clip_contrastive.png", width: 85%),
+  caption: [Fashion-CLIP Contrastive Learning Objective: Aligning Image and Text Encoders @chia2022fashionclip],
+)
 
-MongoDB is a NoSQL document database. It stores data in flexible, JSON-like documents, meaning fields can vary from document to document and data structure can be changed over time. This flexibility makes it suitable for handling semi-structured or rapidly evolving data schemas.
+==== DINOv2 (Visual Specialist)
 
-==== PostgreSQL
+Developed by Meta AI, DINOv2 employs a self-supervised learning objective known as **Knowledge Distillation**.
+*   **Mechanism:** A "student" network learns to predict the output of a "teacher" network, which sees a different view (augmentation) of the same image. Crucially, it does not rely on text labels.
+*   **Utility:** Because it is forced to understand the image structure to solve the distillation task, DINOv2 produces embeddings highly sensitive to **object geometry and texture**, making it exceptional for **Instance Retrieval** (finding exact visual matches) @oquab2023dinov2.
 
-PostgreSQL is a powerful, open-source object-relational database system. It has a strong reputation for reliability, feature robustness, and performance. PostgreSQL supports SQL (relational) and JSON (non-relational) querying, making it versatile for various data storage needs.
+== High-Dimensional Data Persistence
 
-== Related Work and Case Studies
+The implementation of visual search necessitates the storage and retrieval of high-dimensional vectors, presenting unique database challenges.
 
-=== Cloud-Based Student Information Systems
+=== Vector Similarity Search Algorithms
 
-Smith and Johnson (2020) developed a cloud-based student information system using Java and MySQL. Their system aimed to improve data retrieval speeds and provide a centralized platform for academic records. While successful in performance, it lacked modern UI/UX principles and mobile responsiveness, which are crucial in today's educational landscape.
+Searching for the "nearest neighbor" in high-dimensional space is computationally expensive. Approximate Nearest Neighbor (ANN) algorithms are used to trade a marginal amount of accuracy for exponential increases in search speed.
 
-=== Web-Based Educational Management Systems in Vietnam
+*   **IVFFlat (Inverted File with Flat Compression):** This algorithm uses **Clustering** (specifically K-Means) to partition the vector space into Voronoi cells. During a search, the query vector is compared only against vectors in the nearest clusters, pruning the search space drastically.
+*   **HNSW (Hierarchical Navigable Small World):** This algorithm builds a multi-layer graph structure.
+    *   **Fine-Grained Context:** The bottom layer contains all data points connected in a "Small World" graph (where most nodes can be reached in few steps). Higher layers contain sparse subsets of these points, acting as an "expressway" or skip-list. Search begins at the top layer to quickly navigate to the general neighborhood before drilling down to the dense bottom layer for precision. It offers superior performance in terms of the recall-latency trade-off ($O(\log N)$).
 
-Nguyen et al. (2021) conducted a study on implementing web-based educational management systems in Vietnamese universities. Their findings indicated that such systems could significantly reduce administrative workloads by up to 50%. However, their research highlighted challenges in integrating new systems with existing legacy infrastructure and ensuring data consistency across different departments.
+#figure(
+  image("../assets/images/hnsw_graph_structure.png", width: 80%),
+  caption: [Hierarchical Navigable Small World (HNSW) Graph Structure for Efficient Nearest Neighbor Search],
+)
 
-=== Modern Authentication and Authorization in Educational Apps
+=== Integrated Vector Search with pgvector
 
-Chandra and Gupta (2019) explored the importance of robust authentication and authorization mechanisms in educational applications. They emphasized the need for secure user management, role-based access control (RBAC), and protection against common web vulnerabilities to safeguard sensitive student data. Their proposed solution leveraged JWT (JSON Web Tokens) for stateless authentication.
+**pgvector** is an open-source extension for PostgreSQL that integrates vector similarity search directly into the relational database engine @pgvector2023.
 
-=== Real-time Data Synchronization in Distributed Systems
+*   **Polyglot Persistence:** By using pgvector, ReSys.Shop achieves **Polyglot Persistence**—storing structured relational data (prices, inventory) alongside unstructured high-dimensional embeddings—within a single ACID-compliant engine.
+*   **Hybrid Query Execution:** The database planner can optimize execution paths that combine scalar filtering (SQL `WHERE` clauses) with vector distance sorting in a single transaction. This ensures that recommendations are visually relevant and commercially valid (e.g., currently in stock).
 
-For systems handling concurrent updates, such as course registration, real-time data synchronization is critical. Lee and Kim (2022) investigated various strategies for ensuring data consistency in distributed educational platforms, including optimistic and pessimistic locking mechanisms, and the use of event-driven architectures to propagate changes across microservices.
+== Related Systems and Gap Analysis
 
-== Conclusion
+Visual search has transitioned from research to production in several industry-leading platforms.
 
-The literature review underscores the necessity of modern, robust, and user-friendly web-based student management systems. Key technologies like React.js, Node.js, and MongoDB offer suitable foundations for building such systems, addressing the shortcomings of traditional approaches. The reviewed works also highlight important considerations for system design, including integration, data consistency, security, and performance. This research aims to build upon these insights to create an efficient and effective solution for Can Tho University.
+=== Commercial Implementations
+
+*   **Pinterest Lens:** Employs a multi-task learning approach to identify objects within complex lifestyle scenes.
+*   **Google Lens:** Leverages massive-scale proprietary datasets for general-purpose visual identification @google2025.
+*   **Alibaba Pailitao:** Uses a "Cascading Model" approach—first classifying the coarse category (e.g., "Shoe") and then using a category-specific ranking model to refine results.
+
+=== Academic Research and the Gap
+
+Most academic studies (e.g., using the DeepFashion dataset) focus strictly on algorithmic improvements (maximizing mAP) while ignoring real-world engineering constraints like database integration and system latency.
+
+**ReSys.Shop** bridges this gap by addressing the **Full-Stack Engineering** challenge. It demonstrates how to integrate state-of-the-art models (DINOv2, Fashion-CLIP) into a robust web application using `pgvector` for unified persistence, providing a blueprint for modern, AI-integrated e-commerce development.

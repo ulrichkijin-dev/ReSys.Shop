@@ -1,0 +1,16 @@
+Model,K,mP,mR,mAP
+efficientnet_b0,5,0,0,0
+efficientnet_b0,10,0,0,0
+efficientnet_b0,20,0,0,0
+convnext_tiny,5,0,0,0
+convnext_tiny,10,0,0,0
+convnext_tiny,20,0,0,0
+clip_vit_b16,5,0,0,0
+clip_vit_b16,10,0,0,0
+clip_vit_b16,20,0,0,0
+fashion_clip,5,0,0,0
+fashion_clip,10,0,0,0
+fashion_clip,20,0,0,0
+dinov2_vits14,5,0,0,0
+dinov2_vits14,10,0,0,0
+dinov2_vits14,20,0,0,0

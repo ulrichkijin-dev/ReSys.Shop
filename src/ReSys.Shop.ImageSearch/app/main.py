@@ -7,7 +7,7 @@ from typing import List, Dict
 import io
 import uuid
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from PIL import Image
 
 from app.config import settings
@@ -191,7 +191,7 @@ async def generate_embeddings_batch(
                     if emb:
                         setattr(image, attr_name, emb)
                         setattr(image, f"{attr_name}_model", embedder.name)
-                        setattr(image, f"{attr_name}_generated_at", datetime.utcnow())
+                        setattr(image, f"{attr_name}_generated_at", datetime.now(timezone.utc))
                         updated.append(m_name)
 
             db.commit()
@@ -229,7 +229,7 @@ async def generate_embeddings_batch(
 async def search_by_upload(
     file: UploadFile = File(...),
     limit: int = Query(10, ge=1, le=100),
-    model: str = Query(settings.DEFAULT_MODEL, enum=settings.AVAILABLE_MODELS),
+    model: str = Query(settings.DEFAULT_SEARCH_MODEL, enum=settings.AVAILABLE_MODELS),
     db: Session = Depends(get_db),
 ):
     """Search for similar products by uploading an image."""
@@ -269,7 +269,7 @@ async def search_by_upload(
 async def search_by_image_id(
     image_id: uuid.UUID,
     limit: int = Query(10, ge=1, le=100),
-    model: str = Query(settings.DEFAULT_MODEL, enum=settings.AVAILABLE_MODELS),
+    model: str = Query(settings.DEFAULT_SEARCH_MODEL, enum=settings.AVAILABLE_MODELS),
     db: Session = Depends(get_db),
 ):
     """Search for similar products using an existing image ID."""
@@ -304,7 +304,7 @@ async def search_by_image_id(
 async def recommendations_by_product(
     product_id: uuid.UUID,
     limit: int = Query(10, ge=1, le=100),
-    model: str = Query(settings.DEFAULT_MODEL, enum=settings.AVAILABLE_MODELS),
+    model: str = Query(settings.DEFAULT_REC_MODEL, enum=settings.AVAILABLE_MODELS),
     db: Session = Depends(get_db),
 ):
     """Get product recommendations based on visual similarity."""

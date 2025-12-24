@@ -216,7 +216,10 @@ class DINOEmbedder(BaseEmbedder):
         try:
             # Loading DINOv2 Small (ViT-S/14)
             self.model = torch.hub.load(
-                "facebookresearch/dinov2", "dinov2_vits14", pretrained=True
+                "facebookresearch/dinov2",
+                "dinov2_vits14",
+                pretrained=True,
+                skip_validation=True,
             ).to(self.device)
 
             self.model.eval()

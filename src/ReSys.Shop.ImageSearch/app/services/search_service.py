@@ -50,7 +50,7 @@ class SearchService:
             "convnext_tiny": "embedding_convnext",
             "clip_vit_b16": "embedding_clip",
             "fashion_clip": "embedding_fclip",
-            "dino_vit_s16": "embedding_dino"
+            "dinov2_vits14": "embedding_dino"
         }.get(model_name, "embedding_efficientnet")
 
         # Ensure vector is a list for psycopg2/pgvector
@@ -74,7 +74,7 @@ class SearchService:
         
         sql = text(f"""
             SELECT pi.product_id, pi.id as image_id, pi.url, 1 - (pi.{emb_col} <=> CAST(:vec AS vector)) as similarity 
-            FROM product_images pi 
+            FROM eshopdb.product_images pi 
             WHERE {where_stmt}
             ORDER BY pi.{emb_col} <=> CAST(:vec AS vector) 
             LIMIT :limit
@@ -99,13 +99,11 @@ class SearchService:
     def get_model_info() -> Dict[str, Dict[str, Any]]:
         """Get status of all supported models."""
         model_info = {
-            "resnet50": "Baseline CNN (ResNet-50)",
-            "mobilenet_v3": "Efficient CNN (MobileNetV3-Small)",
-            "efficientnet_b0": "Scaled CNN (EfficientNet-B0)",
+            "efficientnet_b0": "Production Baseline CNN (EfficientNet-B0)",
             "convnext_tiny": "Modern CNN (ConvNeXt-Tiny)",
-            "clip_vit_b16": "Vision-Language Transformer (CLIP ViT-B/16)",
-            "fashion_clip": "Domain-Specific CLIP (Fashion-CLIP)",
-            "dino_vit_s16": "Self-supervised Transformer (DINO ViT-S/16)"
+            "clip_vit_b16": "General Semantic Transformer (CLIP ViT-B/16)",
+            "fashion_clip": "Domain-Specific Transformer (Fashion-CLIP)",
+            "dinov2_vits14": "Visual Structure Transformer (DINOv2 ViT-S/14)"
         }
         
         loaded_models = model_manager.get_loaded_models()

@@ -1,0 +1,2 @@
+model,avg_same_category,avg_diversity,avg_distance,n_queries
+clip_vit_b16,0.7140000000000001,0.20200000000000004,0.12744199584344232,50

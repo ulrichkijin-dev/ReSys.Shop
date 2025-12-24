@@ -1,39 +1,19 @@
 // Chapter 5: Conclusion
 = CONCLUSION
 
-This thesis successfully designed, developed, and evaluated a comprehensive web-based student management system for Can Tho University. The primary objective was to enhance operational efficiency and improve the user experience, addressing the limitations of existing manual and fragmented systems.
+This thesis presented the design and implementation of **ReSys.Shop**, a modern distributed e-commerce platform featuring AI-powered visual search.
 
-== Summary of Findings
+== Summary of Contributions
 
-The implemented system, built using React.js for the frontend, Node.js with Express.js for the backend, and MongoDB for data persistence, demonstrated significant improvements across various aspects:
++ **Architecture:** We successfully implemented a polyglot architecture combining a .NET 9 Core for robust business logic and a Python FastAPI service for flexible AI operations.
++ **Visual Search:** The system integrates state-of-the-art Deep Learning models. Our experiments demonstrated that **Fashion-CLIP** outperforms generic models in semantic accuracy (mAP 0.698), while **EfficientNet** remains superior for low-latency applications (46ms).
++ **Vector Integration:** By utilizing `pgvector`, we demonstrated how modern relational databases can effectively handle high-dimensional AI data without the need for specialized vector infrastructure, simplifying the deployment stack.
++ **User Experience:** The Vue.js Storefront successfully hides the complexity of the distributed backend, offering users a seamless "drag-and-drop" visual search experience.
 
-+ **Operational Efficiency:** Processing times for key administrative tasks such as course enrollment and grade submission were reduced by 60-80%. This led to streamlined workflows and a considerable decrease in manual data entry and paperwork.
-+ **Data Consistency and Accuracy:** The centralized database and enforced data validation rules minimized errors and ensured real-time access to accurate information for all stakeholders.
-+ **Accessibility:** The responsive web interface provided 24/7 access from any device, greatly enhancing convenience for students, faculty, and administrators.
-+ **User Satisfaction:** Post-implementation surveys indicated a high level of user satisfaction, with 95% of users reporting positive experiences due to the system's intuitive design and speed.
+== Future Work
 
-These findings confirm that the system successfully met its general and specific objectives, providing a robust and modern solution for student management at Can Tho University.
++ **Real-time Training:** Currently, embeddings are generated in batches. Future iterations could implement online learning to update the model based on user click-through rates.
++ **Mobile Application:** While the web interface is responsive, a native mobile app (using React Native or Flutter) could leverage on-device camera capabilities for smoother visual search.
++ **Hybrid Search:** Combining keyword search (BM25) with vector search (Reciprocal Rank Fusion) could provide the "best of both worlds," allowing users to refine visual queries with text (e.g., "Like this image but in red").
 
-== Contributions of the Research
-
-This research makes several contributions:
-
-+ **Practical Solution:** Delivers a functional and evaluated web-based student management system that can be deployed at Can Tho University, directly addressing a critical need for modernization.
-+ **Demonstration of Agile Methodology:** Provides a case study for the effective application of agile development principles in a university IT project, showcasing its benefits in adaptability and iterative delivery.
-+ **Application of Modern Web Technologies:** Illustrates the successful integration of React.js, Node.js, and MongoDB in a scalable and performant enterprise application within an educational context.
-+ **Foundation for Future Development:** The modular and API-driven architecture provides a strong foundation for future enhancements, integrations, and the development of more advanced features.
-
-== Recommendations for Future Work
-
-Based on the insights gained and the limitations identified during this project, the following recommendations are proposed for future work:
-
-+ **Deep Integration with University Ecosystem:** Integrate with other existing university systems, including the financial accounting system for fee management, the library system for resource access, and the alumni portal for post-graduation tracking.
-+ **Advanced Analytics and Reporting:** Implement business intelligence dashboards and predictive analytics capabilities to offer insights into student performance trends, resource allocation optimization, and early intervention for at-risk students.
-+ **Mobile Native Applications:** Develop dedicated mobile applications for iOS and Android platforms to provide an even more tailored and optimized experience for smartphone users, potentially incorporating push notifications for important updates.
-+ **Personalized Learning Support:** Explore the integration of AI-driven features for personalized course recommendations, academic advising, and career guidance based on student performance and interests.
-+ **Enhanced Communication and Collaboration Tools:** Incorporate features like internal messaging, forum functionality, or virtual office hours to foster better communication between students and faculty.
-+ **Scalability and Performance Optimization:** Conduct further load testing and performance tuning to ensure the system can comfortably handle exponential growth in user base and data volume, especially during peak registration periods.
-
-== Concluding Remarks
-
-The successful development and deployment of this web-based student management system mark a significant step forward for Can Tho University in its journey towards digital transformation. By embracing modern technology and agile practices, the university can now manage its student-related operations more efficiently, provide a superior experience to its academic community, and pave the way for future innovations in educational technology. This project serves as a testament to the power of well-applied software engineering principles in solving complex organizational challenges.
+ReSys.Shop serves as a blueprint for next-generation e-commerce platforms, proving that advanced AI features are accessible and implementable within standard web development frameworks.

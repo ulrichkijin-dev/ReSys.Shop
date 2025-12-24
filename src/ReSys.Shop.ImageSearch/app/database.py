@@ -3,17 +3,11 @@ Database Module for Fashion Image Search Thesis
 ================================================
 
 SQLAlchemy ORM models for e-commerce fashion database with multi-model embeddings.
+Updated to match the ReSys.Shop schema.
 
 Architecture Support:
 - PostgreSQL with pgvector (production)
 - SQLite with JSON fallback (development)
-
-Embedding Models (Thesis Comparison):
-- EfficientNet-B0 (1280-dim): Production CNN
-- ConvNeXt-Tiny (768-dim): Modern CNN
-- CLIP ViT-B/16 (512-dim): General Semantic Transformer
-- Fashion-CLIP (512-dim): Domain-Specific Semantic Transformer
-- DINOv2 ViT-S/14 (384-dim): Visual Structure Transformer
 
 Author: [Your Name]
 Thesis: Building a Fashion E-commerce Application with Recommendation and Image-based Product Search
@@ -22,7 +16,7 @@ Date: December 2025
 
 import uuid
 import logging
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Generator
 from sqlalchemy import (
     DECIMAL,
@@ -31,6 +25,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    BigInteger,
     String,
     Text,
     create_engine,
@@ -88,17 +83,21 @@ class Taxonomy(Base):
         primary_key=True,
         default=uuid.uuid4,
     )
-    name = Column(String(255), nullable=False, unique=True, index=True)
-    presentation = Column(String(255))
-    position = Column(Integer, default=0)
+    name = Column(String(100), nullable=False)
+    presentation = Column(String(1000), nullable=False)
+    position = Column(Integer, nullable=False, default=1)
     public_metadata = Column(JSONB if not USE_SQLITE_DEV else Text)
     private_metadata = Column(JSONB if not USE_SQLITE_DEV else Text)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    updated_at = Column(
+    created_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
     )
+    created_by = Column(String(100))
+    updated_at = Column(DateTime(timezone=True))
+    updated_by = Column(String(256))
+    version = Column(BigInteger, nullable=False, default=0)
+
     taxons = relationship("Taxon", back_populates="taxonomy")
 
 
@@ -112,40 +111,44 @@ class Taxon(Base):
         primary_key=True,
         default=uuid.uuid4,
     )
+    name = Column(String(100), nullable=False)
+    presentation = Column(String(1000), nullable=False)
+    description = Column(String(500))
+    permalink = Column(String(200), nullable=False)
+    pretty_name = Column(String(100), nullable=False)
+    hide_from_nav = Column(Boolean, nullable=False, default=False)
+    position = Column(Integer, nullable=False, default=1)
+    lft = Column(Integer, nullable=False, default=0)
+    rgt = Column(Integer, nullable=False, default=0)
+    depth = Column(Integer, nullable=False, default=0)
+    automatic = Column(Boolean, nullable=False, default=False)
+    rules_match_policy = Column(String(50), nullable=False, default="all")
+    sort_order = Column(String(50), nullable=False, default="manual")
+    marked_for_regenerate_taxon_products = Column(
+        Boolean, nullable=False, default=False
+    )
     taxonomy_id = Column(
         UUID(as_uuid=True) if not USE_SQLITE_DEV else String(36),
         ForeignKey("eshopdb.taxonomies.id"),
         nullable=False,
-        index=True,
     )
     parent_id = Column(
         UUID(as_uuid=True) if not USE_SQLITE_DEV else String(36),
         ForeignKey("eshopdb.taxa.id"),
         nullable=True,
-        index=True,
     )
-    name = Column(String(255), nullable=False, index=True)
-    presentation = Column(String(255))
-    description = Column(Text)
-    permalink = Column(String(750), nullable=False, index=True)
-    pretty_name = Column(String(500))
-    position = Column(Integer, default=0)
-    lft = Column(Integer, default=0, index=True)
-    rgt = Column(Integer, default=0, index=True)
-    depth = Column(Integer, default=0)
-    hide_from_nav = Column(Boolean, default=False)
-    automatic = Column(Boolean, default=False)
-    rules_match_policy = Column(String(50), default="all")
-    sort_order = Column(String(50), default="manual")
-    marked_for_regenerate_taxon_products = Column(Boolean, default=False)
     public_metadata = Column(JSONB if not USE_SQLITE_DEV else Text)
     private_metadata = Column(JSONB if not USE_SQLITE_DEV else Text)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    updated_at = Column(
+    created_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
     )
+    created_by = Column(String(100))
+    updated_at = Column(DateTime(timezone=True))
+    updated_by = Column(String(256))
+    version = Column(BigInteger, nullable=False, default=0)
+
     taxonomy = relationship("Taxonomy", back_populates="taxons")
     parent = relationship("Taxon", remote_side=[id], backref="children")
     classifications = relationship("ProductClassification", back_populates="taxon")
@@ -161,25 +164,26 @@ class ProductClassification(Base):
         primary_key=True,
         default=uuid.uuid4,
     )
+    position = Column(Integer, nullable=False, default=1)
     product_id = Column(
         UUID(as_uuid=True) if not USE_SQLITE_DEV else String(36),
         ForeignKey("eshopdb.products.id"),
         nullable=False,
-        index=True,
     )
     taxon_id = Column(
         UUID(as_uuid=True) if not USE_SQLITE_DEV else String(36),
         ForeignKey("eshopdb.taxa.id"),
         nullable=False,
-        index=True,
     )
-    position = Column(Integer, default=0)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    updated_at = Column(
+    created_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
     )
+    created_by = Column(String(100))
+    updated_at = Column(DateTime(timezone=True))
+    updated_by = Column(String(256))
+
     product = relationship("Product", back_populates="classifications")
     taxon = relationship("Taxon", back_populates="classifications")
 
@@ -194,16 +198,18 @@ class OptionType(Base):
         primary_key=True,
         default=uuid.uuid4,
     )
-    name = Column(String(100), nullable=False, unique=True, index=True)
-    presentation = Column(String(100), nullable=False)
-    position = Column(Integer, default=0)
-    filterable = Column(Boolean, default=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    updated_at = Column(
+    name = Column(String(255), nullable=False, unique=True, index=True)
+    presentation = Column(String(1000), nullable=False)
+    position = Column(Integer, nullable=False, default=1)
+    filterable = Column(Boolean, nullable=False, default=False)
+    created_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
     )
+    created_by = Column(String(100))
+    updated_at = Column(DateTime(timezone=True))
+    updated_by = Column(String(256))
     option_values = relationship("OptionValue", back_populates="option_type")
     product_option_types = relationship(
         "ProductOptionType", back_populates="option_type"
@@ -224,17 +230,20 @@ class OptionValue(Base):
         UUID(as_uuid=True) if not USE_SQLITE_DEV else String(36),
         ForeignKey("eshopdb.option_types.id"),
         nullable=False,
-        index=True,
     )
     name = Column(String(255), nullable=False)
-    presentation = Column(String(255), nullable=False)
-    position = Column(Integer, default=0)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    updated_at = Column(
+    presentation = Column(String(1000), nullable=False)
+    position = Column(Integer, nullable=False, default=1)
+    created_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
     )
+    created_by = Column(String(100))
+    updated_at = Column(DateTime(timezone=True))
+    updated_by = Column(String(256))
+    version = Column(BigInteger, nullable=False, default=0)
+
     option_type = relationship("OptionType", back_populates="option_values")
     variant_option_values = relationship(
         "VariantOptionValue", back_populates="option_value"
@@ -255,27 +264,28 @@ class ProductOptionType(Base):
         UUID(as_uuid=True) if not USE_SQLITE_DEV else String(36),
         ForeignKey("eshopdb.products.id"),
         nullable=False,
-        index=True,
     )
     option_type_id = Column(
         UUID(as_uuid=True) if not USE_SQLITE_DEV else String(36),
         ForeignKey("eshopdb.option_types.id"),
         nullable=False,
-        index=True,
     )
-    position = Column(Integer, default=0)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    updated_at = Column(
+    position = Column(Integer, nullable=False, default=1)
+    created_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
     )
+    created_by = Column(String(100))
+    updated_at = Column(DateTime(timezone=True))
+    updated_by = Column(String(256))
+
     product = relationship("Product", back_populates="product_option_types")
     option_type = relationship("OptionType", back_populates="product_option_types")
 
 
 class VariantOptionValue(Base):
-    """Variant-to-option-value link (e.g., SKU-001 has Color=Red)"""
+    """Variant-to-option-value link"""
 
     __tablename__ = "variant_option_values"
     __table_args__ = {"schema": "eshopdb"}
@@ -288,20 +298,21 @@ class VariantOptionValue(Base):
         UUID(as_uuid=True) if not USE_SQLITE_DEV else String(36),
         ForeignKey("eshopdb.variants.id"),
         nullable=False,
-        index=True,
     )
     option_value_id = Column(
         UUID(as_uuid=True) if not USE_SQLITE_DEV else String(36),
         ForeignKey("eshopdb.option_values.id"),
         nullable=False,
-        index=True,
     )
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    updated_at = Column(
+    created_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
     )
+    created_by = Column(String(100))
+    updated_at = Column(DateTime(timezone=True))
+    updated_by = Column(String(256))
+
     variant = relationship("ProductVariant", back_populates="variant_option_values")
     option_value = relationship("OptionValue", back_populates="variant_option_values")
 
@@ -316,14 +327,22 @@ class PropertyType(Base):
         primary_key=True,
         default=uuid.uuid4,
     )
-    name = Column(String(255), nullable=False, unique=True, index=True)
-    presentation = Column(String(255))
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    updated_at = Column(
+    name = Column(String(100), nullable=False, unique=True, index=True)
+    presentation = Column(String(1000), nullable=False)
+    kind = Column(String(50), nullable=False, default="String")
+    filterable = Column(Boolean, nullable=False, default=False)
+    display_on = Column(String(50), nullable=False, default="ProductDetails")
+    position = Column(Integer, nullable=False, default=1)
+    created_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
     )
+    created_by = Column(String(100))
+    updated_at = Column(DateTime(timezone=True))
+    updated_by = Column(String(256))
+    version = Column(BigInteger, nullable=False, default=0)
+
     product_property_types = relationship(
         "ProductPropertyType", back_populates="property_type"
     )
@@ -343,22 +362,23 @@ class ProductPropertyType(Base):
         UUID(as_uuid=True) if not USE_SQLITE_DEV else String(36),
         ForeignKey("eshopdb.products.id"),
         nullable=False,
-        index=True,
     )
     property_type_id = Column(
         UUID(as_uuid=True) if not USE_SQLITE_DEV else String(36),
         ForeignKey("eshopdb.property_types.id"),
         nullable=False,
-        index=True,
     )
-    property_type_value = Column(String(1000))
-    position = Column(Integer, default=0)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    updated_at = Column(
+    property_type_value = Column(String(5000), nullable=False)
+    position = Column(Integer, nullable=False, default=1)
+    created_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
     )
+    created_by = Column(String(100))
+    updated_at = Column(DateTime(timezone=True))
+    updated_by = Column(String(256))
+
     product = relationship("Product", back_populates="product_properties")
     property_type = relationship(
         "PropertyType", back_populates="product_property_types"
@@ -366,7 +386,7 @@ class ProductPropertyType(Base):
 
 
 class Product(Base):
-    """Core product model with train/val/test split metadata"""
+    """Core product model"""
 
     __tablename__ = "products"
     __table_args__ = {"schema": "eshopdb"}
@@ -375,20 +395,28 @@ class Product(Base):
         primary_key=True,
         default=uuid.uuid4,
     )
-    name = Column(String(255), nullable=False)
-    presentation = Column(String(255))
-    slug = Column(String(255), unique=True, nullable=False, index=True)
-    description = Column(Text)
-    status = Column(Integer, default=0)
-    public_metadata = Column(
-        JSONB if not USE_SQLITE_DEV else Text
-    )  # Contains 'split': train/val/test
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    updated_at = Column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
+    name = Column(String(100), nullable=False)
+    presentation = Column(Text, nullable=False)
+    description = Column(String(5000))
+    slug = Column(String(200), nullable=False, unique=True)
+    status = Column(String(100), nullable=False, default="Active")
+    is_digital = Column(Boolean, nullable=False, default=False)
+    marked_for_regenerate_taxon_products = Column(
+        Boolean, nullable=False, default=False
     )
+    is_deleted = Column(Boolean, nullable=False, default=False)
+    public_metadata = Column(JSONB if not USE_SQLITE_DEV else Text)
+    private_metadata = Column(JSONB if not USE_SQLITE_DEV else Text)
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    created_by = Column(String(100))
+    updated_at = Column(DateTime(timezone=True))
+    updated_by = Column(String(256))
+    version = Column(BigInteger, nullable=False, default=0)
+
     variants = relationship("ProductVariant", back_populates="product")
     images = relationship("ProductImage", back_populates="product")
     classifications = relationship("ProductClassification", back_populates="product")
@@ -410,25 +438,37 @@ class ProductVariant(Base):
         UUID(as_uuid=True) if not USE_SQLITE_DEV else String(36),
         ForeignKey("eshopdb.products.id"),
         nullable=False,
-        index=True,
     )
-    sku = Column(String(255), index=True)
-    is_master = Column(Boolean, default=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    updated_at = Column(
+    is_master = Column(Boolean, nullable=False, default=False)
+    sku = Column(String(255))
+    track_inventory = Column(Boolean, nullable=False, default=True)
+    position = Column(Integer, nullable=False, default=1)
+    is_deleted = Column(Boolean, nullable=False, default=False)
+    public_metadata = Column(JSONB if not USE_SQLITE_DEV else Text)
+    private_metadata = Column(JSONB if not USE_SQLITE_DEV else Text)
+    created_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
     )
+    created_by = Column(String(100))
+    updated_at = Column(DateTime(timezone=True))
+    updated_by = Column(String(256))
+    version = Column(BigInteger, nullable=False, default=0)
+
     product = relationship("Product", back_populates="variants")
-    variant_option_values = relationship("VariantOptionValue", back_populates="variant")
-    stock_items = relationship("StockItem", back_populates="variant")
     images = relationship("ProductImage", back_populates="variant")
-    prices = relationship("Price", back_populates="variant")
+    stock_items = relationship("StockItem", back_populates="variant")
+    prices = relationship("Price", back_populates="variant", cascade="all, delete-orphan")
+    variant_option_values = relationship(
+        "VariantOptionValue", back_populates="variant"
+    )
+    cost_price = Column(DECIMAL(18, 4))
+    cost_currency = Column(String(3), default="USD")
 
 
 class Price(Base):
-    """Variant pricing (multi-currency support)"""
+    """Price record for a variant"""
 
     __tablename__ = "prices"
     __table_args__ = {"schema": "eshopdb"}
@@ -441,32 +481,23 @@ class Price(Base):
         UUID(as_uuid=True) if not USE_SQLITE_DEV else String(36),
         ForeignKey("eshopdb.variants.id"),
         nullable=False,
-        index=True,
     )
-    amount = Column(DECIMAL(18, 2))
-    currency = Column(String(3), nullable=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    updated_at = Column(
+    amount = Column(DECIMAL(18, 4), nullable=False)
+    currency = Column(String(3), nullable=False, default="USD")
+    compare_at_amount = Column(DECIMAL(18, 4))
+    created_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
     )
+    updated_at = Column(DateTime(timezone=True))
+    version = Column(BigInteger, nullable=False, default=0)
+
     variant = relationship("ProductVariant", back_populates="prices")
 
 
 class ProductImage(Base):
-    """
-    CRITICAL THESIS MODEL: Images with 5 embedding architectures
-
-    Embeddings (matching C# ProductImage entity):
-    - embedding_efficientnet (1280-dim): EfficientNet-B0 CNN
-    - embedding_convnext (768-dim): ConvNeXt-Tiny CNN
-    - embedding_clip (512-dim): CLIP ViT-B/16 Transformer
-    - embedding_fclip (512-dim): Fashion-CLIP Transformer
-    - embedding_dino (384-dim): DINOv2 ViT-S/14 Transformer
-
-    type='Search' images are used for similarity search
-    """
+    """Images with multi-model embeddings"""
 
     __tablename__ = "product_images"
     __table_args__ = {"schema": "eshopdb"}
@@ -479,56 +510,53 @@ class ProductImage(Base):
         UUID(as_uuid=True) if not USE_SQLITE_DEV else String(36),
         ForeignKey("eshopdb.products.id"),
         nullable=True,
-        index=True,
     )
     variant_id = Column(
         UUID(as_uuid=True) if not USE_SQLITE_DEV else String(36),
         ForeignKey("eshopdb.variants.id"),
         nullable=True,
-        index=True,
     )
     url = Column(String(2048), nullable=False)
     alt = Column(String(255))
-    type = Column(String(50), index=True)
-    position = Column(Integer, default=0)
-    content_type = Column(String(50))
+    type = Column(String(50), nullable=False)
+    position = Column(Integer, nullable=False, default=1)
+    content_type = Column(String(50), nullable=False)
 
-    # 1. EfficientNet-B0 embeddings (1280-dim) - Production Baseline CNN
+    # Embeddings
     embedding_efficientnet = Column(Vector(1280) if not USE_SQLITE_DEV else Text)
     embedding_efficientnet_model = Column(String(50))
     embedding_efficientnet_generated_at = Column(DateTime(timezone=True))
     embedding_efficientnet_checksum = Column(String(64))
 
-    # 2. ConvNeXt-Tiny embeddings (768-dim) - Modern CNN
     embedding_convnext = Column(Vector(768) if not USE_SQLITE_DEV else Text)
     embedding_convnext_model = Column(String(50))
     embedding_convnext_generated_at = Column(DateTime(timezone=True))
     embedding_convnext_checksum = Column(String(64))
 
-    # 3. CLIP ViT-B/16 embeddings (512-dim) - General Semantic Transformer
     embedding_clip = Column(Vector(512) if not USE_SQLITE_DEV else Text)
     embedding_clip_model = Column(String(50))
     embedding_clip_generated_at = Column(DateTime(timezone=True))
     embedding_clip_checksum = Column(String(64))
 
-    # 4. Fashion-CLIP embeddings (512-dim) - Domain-Specific Transformer
     embedding_fclip = Column(Vector(512) if not USE_SQLITE_DEV else Text)
     embedding_fclip_model = Column(String(50))
     embedding_fclip_generated_at = Column(DateTime(timezone=True))
     embedding_fclip_checksum = Column(String(64))
 
-    # 5. DINOv2 ViT-S/14 embeddings (384-dim) - Self-Supervised Transformer
     embedding_dino = Column(Vector(384) if not USE_SQLITE_DEV else Text)
     embedding_dino_model = Column(String(50))
     embedding_dino_generated_at = Column(DateTime(timezone=True))
     embedding_dino_checksum = Column(String(64))
 
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    updated_at = Column(
+    created_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
     )
+    created_by = Column(String(100))
+    updated_at = Column(DateTime(timezone=True))
+    updated_by = Column(String(256))
+
     product = relationship("Product", back_populates="images")
     variant = relationship("ProductVariant", back_populates="images")
 
@@ -543,61 +571,23 @@ class StockLocation(Base):
         primary_key=True,
         default=uuid.uuid4,
     )
-    name = Column(String(255), nullable=False, unique=True, index=True)
-    presentation = Column(String(255))
-    type = Column(String(50), nullable=False, default="Warehouse")
-    active = Column(Boolean, default=True)
-    is_default = Column("default", Boolean, default=False)
-
-    # Address-related fields
-    company = Column(String(255), nullable=True)
-    address1 = Column(String(255), nullable=True)
-    address2 = Column(String(255), nullable=True)
-    city = Column(String(255), nullable=True)
-    zip_code = Column(String(255), nullable=True)
-    phone = Column(String(255), nullable=True)
-    email = Column(String(255), nullable=True)
-
-    # Shipping/Pickup capabilities
-    ship_enabled = Column(Boolean, nullable=False, default=True)
-    pickup_enabled = Column(Boolean, nullable=False, default=False)
-
-    # Geographic coordinates
-    latitude = Column(DECIMAL(9, 6), nullable=True)
-    longitude = Column(DECIMAL(9, 6), nullable=True)
-
-    # Operating hours (JSONB for flexibility)
-    operating_hours = Column(JSONB if not USE_SQLITE_DEV else Text, nullable=True)
-
-    # Metadata fields
-    public_metadata = Column(JSONB if not USE_SQLITE_DEV else Text, nullable=True)
-    private_metadata = Column(JSONB if not USE_SQLITE_DEV else Text, nullable=True)
-
-    # Auditable fields
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    created_by = Column(String(255), nullable=True)
-    updated_at = Column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
-    )
-    updated_by = Column(String(255), nullable=True)
-
-    # Soft-delete fields
-    deleted_at = Column(DateTime(timezone=True), nullable=True)
-    deleted_by = Column(String(255), nullable=True)
+    name = Column(String(100), nullable=False)
+    presentation = Column(String(1000), nullable=False)
+    type = Column(Integer, nullable=False)  # 1 = Warehouse
+    active = Column(Boolean, nullable=False, default=True)
+    is_default = Column("default", Boolean, nullable=False, default=False)
     is_deleted = Column(Boolean, nullable=False, default=False)
-
-    # Version for concurrency
-    version = Column(Integer, nullable=False, default=0)
-
-    # Foreign keys for location
-    country_id = Column(
-        UUID(as_uuid=True) if not USE_SQLITE_DEV else String(36), nullable=True
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
     )
-    state_id = Column(
-        UUID(as_uuid=True) if not USE_SQLITE_DEV else String(36), nullable=True
-    )
+    created_by = Column(String(100))
+    updated_at = Column(DateTime(timezone=True))
+    updated_by = Column(String(256))
+    version = Column(BigInteger, nullable=False, default=0)
+
+    stock_items = relationship("StockItem", back_populates="stock_location")
 
 
 class StockItem(Base):
@@ -614,50 +604,25 @@ class StockItem(Base):
         UUID(as_uuid=True) if not USE_SQLITE_DEV else String(36),
         ForeignKey("eshopdb.variants.id"),
         nullable=False,
-        index=True,
     )
     stock_location_id = Column(
         UUID(as_uuid=True) if not USE_SQLITE_DEV else String(36),
         ForeignKey("eshopdb.stock_locations.id"),
         nullable=False,
-        index=True,
     )
-    quantity_on_hand = Column(Integer, default=0)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    updated_at = Column(
+    sku = Column(Text, nullable=False)
+    quantity_on_hand = Column(Integer, nullable=False, default=0)
+    backorderable = Column(Boolean, nullable=False, default=True)
+    max_backorder_quantity = Column(Integer, nullable=False, default=0)
+    created_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
     )
+    created_by = Column(String(100))
+    updated_at = Column(DateTime(timezone=True))
+    updated_by = Column(String(256))
+    version = Column(BigInteger, nullable=False, default=0)
+
     variant = relationship("ProductVariant", back_populates="stock_items")
-
-
-class Country(Base):
-    """Country reference"""
-
-    __tablename__ = "countries"
-    __table_args__ = {"schema": "eshopdb"}
-    id = Column(
-        UUID(as_uuid=True) if not USE_SQLITE_DEV else String(36),
-        primary_key=True,
-        default=uuid.uuid4,
-    )
-    name = Column(String(255), nullable=False)
-    iso = Column(String(2), nullable=False, unique=True)
-
-
-class State(Base):
-    """State/Province reference"""
-
-    __tablename__ = "states"
-    __table_args__ = {"schema": "eshopdb"}
-    id = Column(
-        UUID(as_uuid=True) if not USE_SQLITE_DEV else String(36),
-        primary_key=True,
-        default=uuid.uuid4,
-    )
-    name = Column(String(255), nullable=False)
-    abbr = Column(String(10))
-    country_id = Column(
-        UUID(as_uuid=True) if not USE_SQLITE_DEV else String(36), nullable=False
-    )
+    stock_location = relationship("StockLocation", back_populates="stock_items")

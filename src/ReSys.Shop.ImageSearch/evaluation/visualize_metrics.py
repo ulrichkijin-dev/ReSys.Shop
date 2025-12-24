@@ -21,6 +21,7 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 from app.config import settings
 from app.database import get_db, Product, ProductImage
 from app.model_factory import model_manager
+from app.model_mapping import get_embedding_prefix, get_embedding_column
 from app.services.search_service import SearchService
 
 # Setup logging
@@ -39,24 +40,29 @@ class ThesisVisualizer:
         self.metrics_dir = output_dir / "plots"
         self.metrics_dir.mkdir(exist_ok=True)
 
+        # The 5 champion models grouped for thesis comparison
         self.model_groups = {
-            "CNN": ["resnet50", "mobilenet_v3", "efficientnet_b0", "convnext_tiny"],
-            "Transformer": ["clip_vit_b16", "fashion_clip", "dino_vit_s16"],
+            "CNN": ["efficientnet_b0", "convnext_tiny"],
+            "Transformer": ["clip_vit_b16", "fashion_clip", "dinov2_vits14"],
         }
 
     def plot_accuracy_comparison(self, results_df: pd.DataFrame):
         """Generates mAP comparison bar chart."""
-        plt.figure()
+        if results_df.empty:
+            logger.warning("Empty results dataframe, skipping plot.")
+            return
+            
+        plt.figure(figsize=(12, 6))
         # Filter for K=10
         df_k10 = results_df[results_df["K"] == 10].copy()
 
         # Add Architecture Type
-        df_k10["Type"] = df_k10["Model"].apply(
+        df_k10["Architecture"] = df_k10["Model"].apply(
             lambda x: "CNN" if x in self.model_groups["CNN"] else "Transformer"
         )
 
-        ax = sns.barplot(data=df_k10, x="Model", y="mAP", hue="Type")
-        plt.title("Mean Average Precision (mAP@10) Comparison")
+        ax = sns.barplot(data=df_k10, x="Model", y="mAP", hue="Architecture")
+        plt.title("Mean Average Precision (mAP@10) Comparison: CNN vs. Transformers")
         plt.ylabel("mAP")
         plt.xticks(rotation=15)
 
@@ -77,16 +83,19 @@ class ThesisVisualizer:
 
     def plot_inference_performance(self, bench_df: pd.DataFrame):
         """Plots Inference Time vs Accuracy trade-off."""
-        plt.figure()
-        # Ensure we have data
         if bench_df.empty:
             logger.warning("Empty benchmark dataframe, skipping plot.")
             return
 
+        plt.figure(figsize=(10, 7))
+        
+        # Check if we have mAP column (merged from accuracy results)
+        y_col = "mAP" if "mAP" in bench_df.columns else "Avg Inference (ms)"
+        
         sns.scatterplot(
             data=bench_df,
             x="Avg Inference (ms)",
-            y="mAP",
+            y=y_col,
             hue="Model",
             s=200,
             style="Type",
@@ -94,37 +103,27 @@ class ThesisVisualizer:
 
         plt.title("Efficiency vs. Accuracy Trade-off")
         plt.xlabel("Average Inference Time (ms)")
-        plt.ylabel("mAP@10")
+        plt.ylabel("mAP@10" if y_col == "mAP" else "Inference Time")
         plt.grid(True)
 
         # Annotate points
         for i, row in bench_df.iterrows():
             plt.text(
-                row["Avg Inference (ms)"] + 0.5, row["mAP"], row["Model"], fontsize=9
+                row["Avg Inference (ms)"] + 0.2, row[y_col], row["Model"], fontsize=9
             )
 
         plt.savefig(self.metrics_dir / "efficiency_tradeoff.png", bbox_inches="tight")
         plt.close()
 
     def generate_tsne(self, db: Session, model_name: str, n_samples: int = 500):
-        """Generates t-SNE plot for a specific model."""
+        """Generates t-SNE plot for a specific model embeddings."""
         logger.info(f"Generating t-SNE for {model_name}...")
 
-        # Robust prefix mapping consistent with rest of app
-        prefix_map = {
-            "efficientnet_b0": "efficientnet",
-            "convnext_tiny": "convnext",
-            "clip_vit_b16": "clip",
-            "fashion_clip": "fclip",
-            "dino_vit_s16": "dino",
-            "resnet50": "resnet",
-            "mobilenet_v3": "mobilenet",
-        }
-        prefix = prefix_map.get(model_name, model_name.split("_")[0])
-        emb_col = f"embedding_{prefix}"
+        emb_col = get_embedding_column(model_name)
 
+        # Query embeddings
         sql = text(
-            f"SELECT {emb_col}, product_id FROM product_images WHERE {emb_col} IS NOT NULL LIMIT {n_samples}"
+            f"SELECT {emb_col}, product_id FROM eshopdb.product_images WHERE {emb_col} IS NOT NULL LIMIT {n_samples}"
         )
         data = db.execute(sql).fetchall()
 
@@ -138,50 +137,28 @@ class ThesisVisualizer:
             if vec is None:
                 continue
 
-            # Handle SQLite/String storage
-            if isinstance(vec, str):
-                try:
-                    # Remove numpy markers and brackets
-                    clean = (
-                        vec.replace("np.str_", "")
-                        .replace('"', "")
-                        .replace("'", "")
-                        .strip()
-                    )
-                    if clean.startswith("["):
-                        clean = clean[1:]
-                    if clean.endswith("]"):
-                        clean = clean[:-1]
-                    vec = [float(x) for x in clean.split(",") if x.strip()]
-                except Exception as e:
-                    logger.debug(f"Failed to parse vector string: {e}")
-                    continue
-
-            # Handle numpy/list
+            # Vector is already a list or vector-like object from pgvector
             if hasattr(vec, "tolist"):
                 vec = vec.tolist()
+            elif isinstance(vec, str):
+                # Handle string format if necessary
+                vec = [float(x) for x in vec.strip("[]").split(",")]
 
             if isinstance(vec, list) and len(vec) > 0:
                 embeddings.append(vec)
-                labels.append(
-                    SearchService.get_categorization(db, row[1])["article_type"]
-                )
+                # Get category label
+                cat_info = SearchService.get_categorization(db, row[1])
+                labels.append(cat_info["article_type"])
 
         if not embeddings:
             return
-
-        from sklearn.manifold import TSNE
 
         X = np.array(embeddings)
 
         # Handle small samples
         perplexity = min(30, len(X) - 1)
-        if perplexity < 5:
-            perplexity = 5
-        if len(X) < 10:
-            logger.warning(f"Too few samples ({len(X)}) for t-SNE of {model_name}")
-            return
-
+        if perplexity < 5: perplexity = 5
+        
         tsne = TSNE(n_components=2, random_state=42, perplexity=perplexity)
         X_2d = tsne.fit_transform(X)
 
@@ -189,27 +166,32 @@ class ThesisVisualizer:
         df = pd.DataFrame(X_2d, columns=["x", "y"])
         df["Category"] = labels
 
-        # Plot top 10 categories
+        # Plot top 10 categories for clarity
         top_cats = df["Category"].value_counts().nlargest(10).index
+        plot_df = df[df["Category"].isin(top_cats)]
+        
         sns.scatterplot(
-            data=df[df["Category"].isin(top_cats)],
+            data=plot_df,
             x="x",
             y="y",
             hue="Category",
             palette="tab10",
-            alpha=0.6,
+            alpha=0.7,
+            s=60
         )
 
         plt.title(f"Feature Space Visualization (t-SNE): {model_name}")
-        plt.legend(bbox_to_anchor=(1.05, 1), loc=2)
+        plt.legend(bbox_to_anchor=(1.05, 1), loc=2, title="Top Categories")
         plt.tight_layout()
         plt.savefig(self.metrics_dir / f"tsne_{model_name}.png", bbox_inches="tight")
         plt.close()
 
 
 def benchmark_models(db: Session, sample_size=50):
-    """Benchmarks inference speed and resource usage."""
+    """Benchmarks inference speed for all champion models."""
+    logger.info(f"Benchmarking inference performance (sample_size={sample_size})...")
     results = []
+    
     images = (
         db.query(ProductImage)
         .filter(ProductImage.type == "Search")
@@ -217,16 +199,19 @@ def benchmark_models(db: Session, sample_size=50):
         .all()
     )
 
+    if not images:
+        logger.error("No search images found for benchmarking.")
+        return pd.DataFrame()
+
     for m_name in settings.AVAILABLE_MODELS:
+        logger.info(f"  ⚡ Testing {m_name}...")
         embedder = model_manager.get_embedder(m_name)
         if not embedder:
             continue
 
         # Warmup
-        if images:
-            embedder.extract_features(images[0].url)
+        embedder.extract_features(images[0].url)
 
-        start_time = time.time()
         times = []
         for img in images:
             t0 = time.time()
@@ -236,12 +221,10 @@ def benchmark_models(db: Session, sample_size=50):
         results.append(
             {
                 "Model": m_name,
-                "Type": "Transformer"
-                if "clip" in m_name or "dino" in m_name
-                else "CNN",
+                "Type": "Transformer" if "clip" in m_name or "dino" in m_name else "CNN",
                 "Avg Inference (ms)": np.mean(times),
                 "P95 Inference (ms)": np.percentile(times, 95),
-                "Throughput (img/sec)": len(images) / (time.time() - start_time),
+                "Throughput (img/sec)": len(images) / (sum(times) / 1000) if sum(times) > 0 else 0,
             }
         )
 
@@ -249,17 +232,21 @@ def benchmark_models(db: Session, sample_size=50):
 
 
 if __name__ == "__main__":
-    # This is usually called from the experiment script
-    pass
-
-if __name__ == "__main__":
+    # Integration test for visualizer
     db_gen = get_db()
     db = next(db_gen)
     try:
-        benchmark_models(db)
-        for model in COL_MAP.keys():
-            visualize_embeddings(db, model)
-            generate_confusion_matrix(db, model)
-        print(f"\nAll diagrams generated in: {OUTPUT_DIR.absolute()}")
+        output_path = Path("results/visuals_test")
+        viz = ThesisVisualizer(output_path)
+        
+        print("Running benchmarks...")
+        bench_df = benchmark_models(db, sample_size=10)
+        print(bench_df)
+        viz.plot_inference_performance(bench_df)
+        
+        print("\nGenerating t-SNE for default model...")
+        viz.generate_tsne(db, settings.DEFAULT_MODEL, n_samples=100)
+        
+        print(f"\nTest visuals generated in: {output_path.absolute()}")
     finally:
         db.close()

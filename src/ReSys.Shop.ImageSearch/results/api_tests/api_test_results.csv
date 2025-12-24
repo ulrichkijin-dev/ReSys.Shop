@@ -1,0 +1,14 @@
+test,passed,metadata
+root,True,{}
+health,True,{}
+models_list,True,{}
+search_by_id_efficientnet_b0,True,"{'model': 'efficientnet_b0', 'results': 10, 'time_ms': 118.1333065032959, 'top_score': 0.5915361819129047}"
+search_by_upload_efficientnet_b0,True,"{'model': 'efficientnet_b0', 'results': 10, 'time_ms': 359.51995849609375}"
+search_by_id_fashion_clip,True,"{'model': 'fashion_clip', 'results': 10, 'time_ms': 43.9608097076416, 'top_score': 0.8063466548919678}"
+search_by_upload_fashion_clip,True,"{'model': 'fashion_clip', 'results': 10, 'time_ms': 898.970365524292}"
+search_by_id_dinov2_vits14,True,"{'model': 'dinov2_vits14', 'results': 10, 'time_ms': 28.928041458129883, 'top_score': 0.8053012134224542}"
+search_by_upload_dinov2_vits14,True,"{'model': 'dinov2_vits14', 'results': 10, 'time_ms': 187.2231960296631}"
+recommendations_clip_vit_b16,True,"{'model': 'clip_vit_b16', 'results': 10, 'unique': 10}"
+model_comparison,True,{}
+performance_requirements,True,{}
+evaluation_metrics,True,{}

@@ -1,129 +1,246 @@
-// Chapter 3: Methodology
-= METHODOLOGY
+// Chapter 3: System Design and Implementation
+= SYSTEM DESIGN AND IMPLEMENTATION
 
-This chapter details the research methodology employed in the design and development of the web-based student management system. An agile development approach was adopted to ensure flexibility, iterative progress, and continuous feedback integration throughout the project lifecycle.
+This chapter provides a detailed technical specification of the ReSys.Shop platform. It documents the distributed architecture, the hybrid database schema designed for polyglot persistence, and the specific implementation of the visual intelligence pipelines. The design focuses on scalability, maintainability, and user experience, leveraging modern patterns like Modular Monoliths and Microservices.
 
-== Research Approach
+== SYSTEM ARCHITECTURE OVERVIEW
 
-The project followed a design science research methodology, focusing on creating an innovative artifact (the student management system) to solve a real-world problem. This approach involves identifying a problem, defining objectives, designing and developing an artifact, demonstrating its utility, and evaluating its performance.
+ReSys.Shop is architected as a **Distributed Hybrid System**. This design choice bridges the gap between the robustness required for e-commerce transactions and the specialized computational needs of AI inference. By decoupling the core business logic from the AI processing units, the system ensures that heavy computational tasks (like image embedding generation) do not degrade the performance of critical user actions.
 
-== Agile Development Model
+The system is composed of three primary autonomous subsystems:
 
-An agile software development model, specifically Scrum, was chosen for its iterative and incremental nature. This allowed for adaptability to changing requirements and facilitated close collaboration with potential users. The project was divided into several sprints, each focusing on delivering a functional increment of the system.
+1.  **ReSys.Shop.Storefront (Presentation Layer):**
+    -   **Technology:** Built with **Vue.js 3** using the Composition API, tailored with **Tailwind CSS** for styling, and utilizing **Pinia** for state management.
+    -   **Responsibility:** It serves as the visual interface, handling user interactions, image uploads, and rendering the "Visual Stream" of products. Crucially, for search operations, the frontend communicates *directly* with the Image Search Service to minimize network hops and reduce latency.
 
-=== Phases of Agile Development
+2.  **ReSys.Shop.Api (Business Core):**
+    -   **Technology:** Built with **.NET 9**, utilizing **ASP.NET Core** for the web framework.
+    -   **Architecture:** It implements a **Modular Monolith** using **Vertical Slice Architecture**. Features are grouped by domain (e.g., `Catalog`, `Orders`, `Identity`) rather than technical layers.
+    -   **Responsibility:** It acts as the "Source of Truth" for product metadata, prices, and user accounts. It orchestrates business rules and data validation.
 
-==== 1. Requirements Analysis
+3.  **ReSys.Shop.ImageSearch (Intelligence Microservice):**
+    -   **Technology:** A lightweight **Python** service built with **FastAPI**. It leverages **PyTorch** for deep learning and **SQLAlchemy** for database interactions.
+    -   **Responsibility:** It is dedicated solely to Deep Learning inference. It hosts the **DINOv2** and **Fashion-CLIP** models in memory (GPU/CPU) to generate vector embeddings from images and perform nearest-neighbor searches.
 
-This phase involved gathering and analyzing the functional and non-functional requirements for the student management system.
+These components share a unified persistence layer powered by **PostgreSQL 15** with the **pgvector** extension, enabling "Polyglot Persistence" within a single database engine.
 
-===== Techniques Used
+== MAIN FUNCTIONS
 
-+ *Interviews:* Structured interviews were conducted with key stakeholders, including university administrators, faculty members, and a sample of students, to understand their needs, pain points, and expectations from the new system.
-+ *Surveys:* Online surveys were distributed to a wider student population to gather quantitative data on desired features and priorities.
-+ *Document Analysis:* Existing documents, such as academic regulations, student handbooks, and current administrative workflows, were reviewed to identify critical data points and processes.
+The system functionality is strictly categorized into two active entities: the **Customer** and the **System (Automated Agent)**.
 
-===== Key Requirements
-
-+ User authentication and authorization (students, faculty, administrators)
-+ Student profile management (personal information, academic history)
-+ Course catalog browsing and enrollment
-+ Grade entry and viewing
-+ Class scheduling and attendance tracking
-+ Automated reporting (transcripts, class lists)
-+ Responsive user interface
-+ Robust data security and privacy
-
-==== 2. System Design
-
-Based on the gathered requirements, the system architecture and detailed design were formulated.
-
-===== Architectural Design
-
-The system adopted a three-tier architecture:
-+ *Presentation Layer (Frontend):* Developed using React.js, responsible for the user interface and user interaction.
-+ *Application Layer (Backend):* Developed using Node.js with Express.js, handling business logic, API endpoints, and data processing.
-+ *Data Layer (Database):* MongoDB was chosen for data persistence due to its flexibility and scalability, storing student records, course information, and other system data.
-
-===== Database Design
-
-A NoSQL document-oriented approach was used for MongoDB. Collections were designed to store related data, such as `students`, `courses`, `enrollments`, and `grades`. Relationships between collections were managed through references, optimizing for read performance and schema flexibility.
-
-===== UML Diagrams
-
-Unified Modeling Language (UML) diagrams were employed to visualize the system's structure and behavior.
-+ *Use Case Diagrams:* Illustrated the interactions between users (actors) and the system.
-+ *Class Diagrams:* Depicted the static structure of the system, showing classes, attributes, methods, and relationships.
-+ *Sequence Diagrams:* Showed the interactions between objects in a sequential order, particularly for key processes like student enrollment or grade submission.
-+ *Activity Diagrams:* Modeled the workflow of various processes within the system.
-
-==== 3. Implementation
-
-The system was developed iteratively in accordance with the agile methodology.
-
-===== Frontend Development
-
-React.js was used to build a responsive and intuitive user interface. Key components included:
-+ User dashboards (student, faculty, admin)
-+ Forms for data entry (e.g., course registration, grade submission)
-+ Data display components (e.g., student transcripts, course schedules)
-+ Navigation and routing using React Router.
-
-===== Backend Development
-
-Node.js with Express.js was utilized to create RESTful APIs. Key functionalities implemented included:
-+ User authentication and authorization using JWT (JSON Web Tokens).
-+ API endpoints for CRUD (Create, Read, Update, Delete) operations on student, course, and grade data.
-+ Business logic for enrollment rules, grade calculations, and report generation.
-+ Integration with MongoDB using Mongoose ODM (Object Data Modeling).
-
-==== 4. Testing
-
-A multi-faceted testing strategy was employed to ensure the system's quality, functionality, and performance.
-
-===== Unit Testing
-
-Individual functions and components were tested in isolation to verify their correctness. Jest was used for React.js components, and Mocha/Chai for Node.js backend functions.
-
-===== Integration Testing
-
-This involved testing the interactions between different modules and services, particularly between the frontend and backend, and the backend with the database. Automated integration tests ensured that data flowed correctly across the system.
-
-===== User Acceptance Testing (UAT)
-
-A selected group of end-users (students, faculty, administrators) participated in UAT. They tested the system against predefined scenarios to confirm that it met their requirements and was user-friendly. Feedback from UAT was incorporated into subsequent development sprints.
-
-===== Performance Testing
-
-Load testing was conducted to assess the system's responsiveness and stability under various user loads, ensuring it could handle the anticipated number of concurrent users during peak times (e.g., course registration periods).
-
-==== 5. Deployment
-
-The system was deployed to a cloud platform (e.g., Heroku, AWS EC2) to ensure accessibility and scalability. A continuous integration/continuous deployment (CI/CD) pipeline was established to automate the build, test, and deployment processes, facilitating rapid iterations and updates.
-
-== Tools and Technologies
-
-#table(
-  columns: (auto, auto, 1fr), // Adjust column widths as needed
-  align: (left, left, left), // Default alignment for content
-  // Table header
-  [Category], [Tool/Technology], [Description],
-  // Table rows
-  [Frontend], [React.js], [JavaScript library for UI development],
-  [], [HTML5, CSS3], [Standard web languages],
-  [], [Axios], [HTTP client for API requests],
-  [Backend], [Node.js], [JavaScript runtime environment],
-  [], [Express.js], [Web framework for Node.js],
-  [], [Mongoose], [ODM for MongoDB],
-  [], [JWT], [JSON Web Tokens for authentication],
-  [Database], [MongoDB], [NoSQL document database],
-  [Testing], [Jest], [JavaScript testing framework (frontend)],
-  [], [Mocha, Chai], [JavaScript testing frameworks (backend)],
-  [Version Control], [Git, GitHub], [Distributed version control system],
-  [Deployment], [Heroku/AWS EC2], [Cloud platform for hosting],
-  [UI/UX], [Figma], [Prototyping and design tool],
+#figure(
+  table(
+    columns: (auto, 1fr),
+    align: (center, left),
+    stroke: 0.5pt,
+    fill: (_, row) => if row == 0 { luma(230) } else { none },
+    [**Actor**], [**Detailed Functionality**],
+    [**Customer**], [
+      - **Visual Search (Instance Retrieval):** Upload a photo to find exact or near-exact matches in the catalog (e.g., finding a specific dress pattern).
+      - **Style Recommendations (Discovery):** View "You Might Also Like" suggestions based on the stylistic features of the currently viewed item.
+      - **Visual Stream:** Browse products in an infinite-scroll masonry grid optimized for image consumption.
+      - **Keyword Search:** Search for products using text (Title, Description).
+      - **Cart Management:** Add items to cart and proceed to checkout.
+    ],
+    [**System**], [
+      - **Vector Generation:** Automatically compute embeddings (DINOv2, Fashion-CLIP) for new product images detected in the database.
+      - **Index Management:** Maintain HNSW graphs for fast retrieval ($O(\log N)$).
+      - **Data Synchronization:** Ensure the vector space is consistent with the relational catalog data (e.g., removing vectors for deleted products).
+    ]
+  ),
+  caption: [Detailed functions of ReSys.Shop system]
 )
 
-== Conclusion
+== USE CASES DIAGRAMS
 
-The agile development methodology, combined with a robust technology stack, provided a structured yet flexible framework for developing the student management system. The iterative nature of the approach allowed for continuous improvement and ensured that the final product effectively addressed the needs of Can Tho University. The subsequent chapters will present the detailed implementation and evaluation of the system.
+This section details the interactions between the Customer and the System.
+
+=== 3.3.1. Actor Definitions
+
+-   **Customer:** An end-user who interacts with the storefront to browse, search, and purchase products.
+-   **System (AI Agent):** The automated background processes that handle image processing and vectorization without human intervention.
+
+=== 3.3.2. Customer Use Cases
+
+The Customer actor primarily interacts with the Discovery modules.
+
+#figure(
+  image("../assets/images/usecase_customer.png", width: 80%),
+  caption: [Use Case Diagram: Customer Interactions],
+)
+
+#### **UC-01: Visual Search (Instance Retrieval)**
+*   **Actor:** Customer
+*   **Goal:** Find specific products using an image query.
+*   **Preconditions:** User is on the Storefront homepage.
+*   **Main Flow:**
+    1.  User clicks the camera icon in the search bar.
+    2.  User uploads an image file (JPEG/PNG).
+    3.  System validates image size (< 5MB) and format.
+    4.  System displays a skeleton loader.
+    5.  System (Frontend) sends image to Python Microservice.
+    6.  System (Microservice) computes DINOv2 vector.
+    7.  System retrieves top-10 matches from `pgvector` index.
+    8.  System displays results with similarity scores (e.g., "98% Match").
+
+#### **UC-02: View Style Recommendations**
+*   **Actor:** Customer
+*   **Goal:** Discover stylistically similar items.
+*   **Preconditions:** User is viewing a Product Detail Page.
+*   **Main Flow:**
+    1.  User scrolls to "You Might Also Like."
+    2.  System retrieves the `embedding_fashion_clip` of the current product.
+    3.  System executes a Cosine Similarity search excluding the current ID.
+    4.  System renders a carousel of recommended products.
+
+=== 3.3.3. System Use Cases
+
+These use cases define the automated behaviors that keep the platform running.
+
+#figure(
+  image("../assets/images/usecase_system.png", width: 80%),
+  caption: [Use Case Diagram: System Operations],
+)
+
+#### **UC-03: Synchronize Product Embeddings**
+*   **Actor:** System (Quartz.NET Job)
+*   **Goal:** Generate AI vectors for new products.
+*   **Preconditions:** Products exist with `HasEmbedding = false`.
+*   **Trigger:** Time-based (e.g., every 30 seconds).
+*   **Main Flow:**
+    1.  Job queries database for pending products (Limit 50).
+    2.  **Loop** for each product:
+        a.  Job sends Image URL to Python Service (`/embeddings/generate`).
+        b.  Python Service downloads image.
+        c.  Python Service runs DINOv2 and Fashion-CLIP inference.
+        d.  Python Service writes vectors to `product_images` table.
+        e.  Job marks product as `HasEmbedding = true`.
+    3.  Job finishes execution.
+
+== DATABASE DESIGN
+
+We used **PostgreSQL** with the **pgvector** extension to store all data for ReSys.Shop. This "Polyglot Persistence" approach allows us to keep relational data (prices, names) and vector data (embeddings) in a single ACID-compliant environment.
+
+#figure(
+  image("../assets/images/erd_diagram.png", width: 90%),
+  caption: [Entity Relationship Diagram (ERD)],
+)
+
+**Detailed Table Specifications:**
+
+1.  **Products Table:**
+    -   `Id` (UUID, PK): Unique identifier for the product.
+    -   `Name` (VARCHAR): Product display name.
+    -   `Description` (TEXT): Detailed product description.
+    -   `Price` (DECIMAL): Current unit price.
+    -   `Sku` (VARCHAR): Stock Keeping Unit, unique business identifier.
+    -   `HasEmbedding` (BOOLEAN): Status flag for background synchronization.
+
+2.  **ProductImages Table:**
+    -   `Id` (UUID, PK): Unique identifier for the image record.
+    -   `ProductId` (UUID, FK): Links to the `Products` table.
+    -   `ImageUrl` (TEXT): URL to the stored image file.
+    -   `Embedding_DinoV2` (vector(384)): A 384-dimensional vector generated by DINOv2 ViT-S/14. Optimized for shape, texture, and pattern matching.
+    -   `Embedding_FashionClip` (vector(512)): A 512-dimensional vector generated by Fashion-CLIP. Optimized for semantic style and category matching.
+
+3.  **Taxons (Categories):**
+    -   `Id` (UUID, PK)
+    -   `Name` (VARCHAR): Category name (e.g., "Shirts", "Dresses").
+    -   `ParentId` (UUID, Self-FK): Allows for hierarchical categories (e.g., Clothing > Women > Dresses).
+
+*(Note: Inventory management is excluded from this schema as it is outside the scope of the visual search research implementation.)*
+
+== UI/UX DESIGN
+
+UI/UX design is critical for a visual-first platform. We utilized **Figma** for prototyping and **Vue.js 3** with **Tailwind CSS** for implementation. The design philosophy prioritizes imagery over text.
+
+=== Design Principles
+
+1.  **Visual Stream:** The homepage abandons traditional pagination for an "infinite scroll" masonry grid. This layout accommodates fashion images of varying aspect ratios (portrait vs. square) without awkward cropping.
+2.  **Immediate Feedback:** When a user uploads an image for search, the system immediately displays a "Skeleton Loader" (a gray placeholder animation) to perceive speed while the Python backend processes the image (approx. 100-200ms).
+3.  **Similarity Transparency:** Search results display a "Match Score" overlay (e.g., "98% Match"). This builds trust by showing the user *why* a product was returned.
+
+#figure(
+  image("../assets/images/figma_design.png", width: 90%),
+  caption: [Figma Design System for Visual Stream],
+)
+
+== DETAIL OF FUNCTIONS IN THE SYSTEM
+
+This section provides a deep dive into the algorithmic implementation of the core features.
+
+=== 3.6.1. Visual Search Function (Instance Retrieval)
+
+**Description:** Allows users to find products by uploading a reference image. This utilizes the **DINOv2** model.
+
+**Flowchart:**
+
+#figure(
+  image("../assets/images/flowchart_visual_search.png", width: 60%),
+  caption: [Flowchart of Visual Search function],
+)
+
+**Detailed Process:**
+1.  **Input:** User selects an image.
+2.  **Preprocessing:** The Python service resizes the image to $224 \times 224$ pixels and normalizes pixel values using ImageNet mean/std.
+3.  **Inference:** The processed tensor is passed through the `dinov2_vits14` model. The output is a raw 384-dimensional floating-point vector.
+4.  **Query Construction:** The system constructs a SQL query using the `<=>` operator (Cosine Distance).
+5.  **Execution:** PostgreSQL scans the HNSW index to find the 10 nearest neighbors.
+6.  **Response:** The system returns a JSON list of products, including their calculated similarity score ($1 - distance$).
+
+=== 3.6.2. Recommendation Function (Style Discovery)
+
+**Description:** Suggests items that match the "Style" of the currently viewed product. This utilizes the **Fashion-CLIP** model.
+
+**Process:**
+1.  **Trigger:** User navigates to a Product Detail Page (e.g., `product/123`).
+2.  **Retrieval:** The backend looks up the pre-calculated `Embedding_FashionClip` for Product `123`.
+3.  **Search:** The system queries for products that are *close* in vector space but explicitly *excludes* the current product ID.
+4.  **Semantic Match:** Because Fashion-CLIP is trained on text-image pairs, vectors close to each other share semantic attributes (e.g., "Bohemian", "Vintage") even if they don't look identical pixel-by-pixel.
+5.  **Display:** Results are shown in a "You Might Also Like" carousel.
+
+=== 3.6.3. Data Synchronization Function
+
+**Description:** Ensures that new products automatically have searchable vectors. This utilizes the **Quartz.NET** job scheduler.
+
+**Logic:**
+This is an automated background process handled by the `.NET Core` backend. It implements the "Polling" pattern.
+
+#figure(
+  block(
+    width: 100%,
+    stroke: 0.5pt + luma(150),
+    inset: 10pt,
+    radius: 4pt,
+    [
+```csharp
+// ImageProcessingJob.cs
+public async Task Execute(IJobExecutionContext context) {
+    // 1. Identify: Find up to 50 products that have an image but no embedding
+    var products = await _dbContext.Products
+        .Where(p => !p.HasEmbedding && p.ImageUrl != null)
+        .Take(50)
+        .ToListAsync();
+    
+    // 2. Process: Loop through each product
+    foreach(var p in products) {
+        // 3. Delegate: Call the Python Microservice
+        var response = await _aiClient.PostAsync(
+            "/embeddings/generate", 
+            new { ImageUrl = p.ImageUrl }
+        );
+        
+        // 4. Update: If successful, mark as processed
+        if (response.IsSuccessStatusCode) {
+            p.HasEmbedding = true;
+            p.ProcessedAt = DateTime.UtcNow;
+        }
+    }
+    // 5. Commit: Save state to PostgreSQL
+    await _dbContext.SaveChangesAsync();
+}
+```
+    ]
+  ),
+  caption: [Code snippet for Synchronization Logic]
+)

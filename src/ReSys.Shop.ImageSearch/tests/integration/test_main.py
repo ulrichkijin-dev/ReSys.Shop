@@ -9,7 +9,6 @@ import requests
 import os
 import sys
 from pathlib import Path
-from typing import Optional
 
 # Configuration
 API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
@@ -37,7 +36,7 @@ def test_root():
             print(f"✓ Available models: {', '.join(data['available_models'])}")
             return True
         else:
-            print(f"✗ Unexpected status code")
+            print("✗ Unexpected status code")
             return False
     except Exception as e:
         print(f"✗ Error: {e}")
@@ -64,7 +63,7 @@ def test_health():
                     print(f"  {status} {model['model_name']}: {model.get('error', 'Not loaded')}")
             return True
         else:
-            print(f"✗ Unexpected status code")
+            print("✗ Unexpected status code")
             return False
     except Exception as e:
         print(f"✗ Error: {e}")
@@ -234,7 +233,7 @@ def get_sample_data():
         try:
             sample_product = db.query(Product).first()
             sample_image = db.query(ProductImage).filter(
-                ProductImage.embedding_efficientnet != None,
+                ProductImage.embedding_efficientnet is not None,
                 ProductImage.type == 'Search'
             ).first()
             

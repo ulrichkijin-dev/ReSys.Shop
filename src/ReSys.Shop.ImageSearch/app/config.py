@@ -13,7 +13,9 @@ class Settings(BaseSettings):
 
     # Model Settings (matching C# ProductImage entity)
     # These are the 5 champion models selected for the thesis
-    DEFAULT_MODEL: str = "efficientnet_b0"
+    DEFAULT_MODEL: str = "fashion_clip"
+    DEFAULT_SEARCH_MODEL: str = "dinov2_vits14"
+    DEFAULT_REC_MODEL: str = "fashion_clip"
     AVAILABLE_MODELS: List[str] = [
         # Group A: Production Baseline CNN (1280-dim)
         "efficientnet_b0",  # EfficientNet-B0: Modern Production Default

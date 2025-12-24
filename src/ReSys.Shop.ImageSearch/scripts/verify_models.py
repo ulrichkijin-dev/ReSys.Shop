@@ -1,4 +1,3 @@
-import os
 import sys
 from pathlib import Path
 import torch
@@ -54,7 +53,7 @@ def test_models():
                         )
                         results[m_name] = True
                     else:
-                        print(f"  - Feature extraction: ✗ (wrong dimension)")
+                        print("  - Feature extraction: ✗ (wrong dimension)")
                         results[m_name] = False
 
                 except Exception as e:
